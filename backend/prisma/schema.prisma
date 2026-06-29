@@ -1,0 +1,74 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model categorias {
+  id          Int        @id @default(autoincrement())
+  nombre      String     @unique @db.VarChar(100)
+  descripcion String?
+  paquetes    paquetes[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model clientes {
+  id            Int        @id @default(autoincrement())
+  nombre        String     @db.VarChar(150)
+  cedula        String     @unique @db.VarChar(30)
+  telefono      String?    @db.VarChar(30)
+  fecha_inicio  DateTime   @db.Date
+  observaciones String?
+  estado        String     @default("activo") @db.VarChar(20)
+  facturas      facturas[]
+
+  @@index([estado], map: "idx_clientes_estado")
+  @@index([fecha_inicio], map: "idx_clientes_fecha_inicio")
+  @@index([nombre], map: "idx_clientes_nombre")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model facturas {
+  id                 Int       @id @default(autoincrement())
+  cliente_id         Int
+  paquete_id         Int
+  usuario_id         Int?
+  fecha_facturacion  DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  fecha_proximo_pago DateTime  @db.Date
+  monto              Decimal   @db.Decimal(10, 2)
+  clientes           clientes  @relation(fields: [cliente_id], references: [id], onUpdate: NoAction)
+  paquetes           paquetes  @relation(fields: [paquete_id], references: [id], onUpdate: NoAction)
+  usuarios           usuarios? @relation(fields: [usuario_id], references: [id], onUpdate: NoAction)
+
+  @@index([cliente_id], map: "idx_facturas_cliente_id")
+  @@index([fecha_facturacion], map: "idx_facturas_fecha_facturacion")
+  @@index([fecha_proximo_pago], map: "idx_facturas_fecha_proximo_pago")
+  @@index([paquete_id], map: "idx_facturas_paquete_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model paquetes {
+  id            Int        @id @default(autoincrement())
+  nombre        String     @db.VarChar(150)
+  precio        Decimal    @db.Decimal(10, 2)
+  categoria_id  Int
+  duracion_dias Int
+  estado        String     @default("activo") @db.VarChar(20)
+  facturas      facturas[]
+  categorias    categorias @relation(fields: [categoria_id], references: [id], onUpdate: NoAction)
+
+  @@index([categoria_id], map: "idx_paquetes_categoria_id")
+  @@index([estado], map: "idx_paquetes_estado")
+  @@index([nombre], map: "idx_paquetes_nombre")
+}
+
+model usuarios {
+  id            Int        @id @default(autoincrement())
+  nombre        String     @db.VarChar(150)
+  email         String     @unique @db.VarChar(150)
+  password_hash String     @db.VarChar(255)
+  facturas      facturas[]
+}
