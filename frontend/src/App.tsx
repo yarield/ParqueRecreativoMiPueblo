@@ -6,6 +6,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import ClientesPage from '@/pages/ClientesPage'
+import PaquetesPage from '@/pages/PaquetesPage'
 
 const queryClient = new QueryClient()
 
@@ -25,6 +26,7 @@ export default function App() {
               }
             >
               <Route path="/clientes" element={<ClientesPage />} />
+              <Route path="/paquetes" element={<PaquetesPage />} />
               <Route path="*" element={<Navigate to="/clientes" replace />} />
             </Route>
           </Routes>
