@@ -8,6 +8,7 @@ import facturasRouter from './routes/facturas.routes'
 import usuariosRouter from './routes/usuarios.routes'
 import authRouter from './routes/auth.routes'
 import { errorHandler } from './middlewares/errorHandler'
+import { iniciarTareaEstados } from './tasks/actualizarEstados'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -34,4 +35,5 @@ app.use(errorHandler)
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`)
+  iniciarTareaEstados()
 })

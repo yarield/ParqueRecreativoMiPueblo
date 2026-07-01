@@ -9,7 +9,7 @@ const router = Router()
 router.get('/', authMiddleware, async (_req, res, next) => {
   try {
     const facturas = await prisma.facturas.findMany({
-      include: { clientes: true, paquetes: true, usuarios: true },
+      include: { clientes: true, paquetes: { include: { categorias: true } }, usuarios: true },
       orderBy: { fecha_facturacion: 'desc' }
     })
     res.json(facturas)
@@ -23,7 +23,7 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
   try {
     const factura = await prisma.facturas.findUnique({
       where: { id: Number(req.params.id) },
-      include: { clientes: true, paquetes: true, usuarios: true }
+      include: { clientes: true, paquetes: { include: { categorias: true } }, usuarios: true }
     })
     if (!factura) {
       res.status(404).json({ error: 'Factura no encontrada' })
@@ -43,7 +43,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res, next) => {
         ...req.body,
         usuario_id: req.usuarioId
       },
-      include: { clientes: true, paquetes: true }
+      include: { clientes: true, paquetes: { include: { categorias: true } } }
     })
     res.status(201).json(factura)
   } catch (err) {
