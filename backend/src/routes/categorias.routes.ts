@@ -1,56 +1,68 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma'
+import { authMiddleware } from '../middlewares/auth'
 
 const router = Router()
 
-// Get api/categories
-router.get('/', async (_req, res) => {
+// GET /api/categorias — público
+router.get('/', async (_req, res, next) => {
+  try {
     const categorias = await prisma.categorias.findMany()
     res.json(categorias)
+  } catch (err) {
+    next(err)
+  }
 })
 
-// Get api/categories/:id
-router.get('/:id', async (req, res) => {
+// GET /api/categorias/:id — público
+router.get('/:id', async (req, res, next) => {
+  try {
     const categoria = await prisma.categorias.findUnique({
-        where: {
-            id: Number(req.params.id)
-        }
+      where: { id: Number(req.params.id) }
     })
     if (!categoria) {
-        res.status(404).json({ error: 'Categoria not found' })
-        return
+      res.status(404).json({ error: 'Categoría no encontrada' })
+      return
     }
     res.json(categoria)
+  } catch (err) {
+    next(err)
+  }
 })
 
-// Post api/categories
-router.post('/', async (req, res) => {
-    const categoria = await prisma.categorias.create({
-        data: req.body
-    })
+// POST /api/categorias — protegido
+router.post('/', authMiddleware, async (req, res, next) => {
+  try {
+    const categoria = await prisma.categorias.create({ data: req.body })
     res.status(201).json(categoria)
+  } catch (err) {
+    next(err)
+  }
 })
 
-// Put api/categories/:id
-router.put('/:id', async (req, res) => {
+// PUT /api/categorias/:id — protegido
+router.put('/:id', authMiddleware, async (req, res, next) => {
+  try {
     const categoria = await prisma.categorias.update({
-        where: {
-            id: Number(req.params.id)
-        },
-        data: req.body
+      where: { id: Number(req.params.id) },
+      data: req.body
     })
     res.json(categoria)
-
-
+  } catch (err) {
+    next(err)
+  }
 })
 
-// Delete api/categories/:id
-router.delete('/:id', async (req, res) => {
-    const categoria = await prisma.categorias.delete({
-        where: {
-            id: Number(req.params.id)
-        }
+// DELETE /api/categorias/:id — protegido
+router.delete('/:id', authMiddleware, async (req, res, next) => {
+  try {
+    await prisma.categorias.delete({
+      where: { id: Number(req.params.id) }
     })
     res.status(204).send()
+  } catch (err) {
+    next(err)
+  }
 })
+
 export default router
