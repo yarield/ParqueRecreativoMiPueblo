@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import ClientesTable from '@/components/clientes/ClientesTable'
 import ClienteFormDialog from '@/components/clientes/ClienteFormDialog'
 import ClienteDeleteDialog from '@/components/clientes/ClienteDeleteDialog'
+import ClienteHistorialDialog from '@/components/clientes/ClienteHistorialDialog'
 import { useClientes, useCreateCliente, useUpdateCliente, useDeleteCliente } from '@/hooks/useClientes'
 import { CLIENTES_LABELS } from '@/constants/clientes.constants'
 import type { Cliente } from '@/types/clientes'
@@ -18,8 +19,12 @@ export default function ClientesPage() {
 
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'activo' | 'inactivo'>('todos')
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState('')
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState('')
+
   const [clienteEditar, setClienteEditar] = useState<Cliente | null>(null)
   const [clienteEliminar, setClienteEliminar] = useState<Cliente | null>(null)
+  const [clienteHistorial, setClienteHistorial] = useState<Cliente | null>(null)
   const [formOpen, setFormOpen] = useState(false)
 
   const clientesFiltrados = useMemo(() => {
@@ -27,20 +32,16 @@ export default function ClientesPage() {
       const coincideBusqueda =
         c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
         c.cedula.toLowerCase().includes(busqueda.toLowerCase())
+
       const coincideEstado = filtroEstado === 'todos' || c.estado === filtroEstado
-      return coincideBusqueda && coincideEstado
+
+      const fechaInicio = c.fecha_inicio.slice(0, 10)
+      const coincideFechaDesde = !filtroFechaDesde || fechaInicio >= filtroFechaDesde
+      const coincideFechaHasta = !filtroFechaHasta || fechaInicio <= filtroFechaHasta
+
+      return coincideBusqueda && coincideEstado && coincideFechaDesde && coincideFechaHasta
     })
-  }, [clientes, busqueda, filtroEstado])
-
-  function abrirCrear() {
-    setClienteEditar(null)
-    setFormOpen(true)
-  }
-
-  function abrirEditar(cliente: Cliente) {
-    setClienteEditar(cliente)
-    setFormOpen(true)
-  }
+  }, [clientes, busqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta])
 
   async function handleSubmitForm(data: ClienteFormData) {
     if (clienteEditar) {
@@ -51,9 +52,7 @@ export default function ClientesPage() {
   }
 
   async function handleEliminar() {
-    if (clienteEliminar) {
-      await deleteCliente.mutateAsync(clienteEliminar.id)
-    }
+    if (clienteEliminar) await deleteCliente.mutateAsync(clienteEliminar.id)
   }
 
   async function handleToggleEstado(cliente: Cliente) {
@@ -65,18 +64,20 @@ export default function ClientesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">{CLIENTES_LABELS.titulo}</h2>
-        <Button onClick={abrirCrear}>{CLIENTES_LABELS.agregar}</Button>
+        <Button onClick={() => { setClienteEditar(null); setFormOpen(true) }}>
+          {CLIENTES_LABELS.agregar}
+        </Button>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <Input
-          className="max-w-sm"
+          className="w-56"
           placeholder={CLIENTES_LABELS.buscar}
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
         <Select value={filtroEstado} onValueChange={(v) => setFiltroEstado(v as typeof filtroEstado)}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -85,6 +86,24 @@ export default function ClientesPage() {
             <SelectItem value="inactivo">{CLIENTES_LABELS.inactivo}</SelectItem>
           </SelectContent>
         </Select>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">{CLIENTES_LABELS.filtrarFechaDesde}</span>
+          <Input
+            type="date"
+            className="w-40"
+            value={filtroFechaDesde}
+            onChange={(e) => setFiltroFechaDesde(e.target.value)}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-500">{CLIENTES_LABELS.filtrarFechaHasta}</span>
+          <Input
+            type="date"
+            className="w-40"
+            value={filtroFechaHasta}
+            onChange={(e) => setFiltroFechaHasta(e.target.value)}
+          />
+        </div>
       </div>
 
       {isLoading ? (
@@ -92,9 +111,10 @@ export default function ClientesPage() {
       ) : (
         <ClientesTable
           clientes={clientesFiltrados}
-          onEdit={abrirEditar}
-          onDelete={(c) => setClienteEliminar(c)}
+          onEdit={(c) => { setClienteEditar(c); setFormOpen(true) }}
+          onDelete={setClienteEliminar}
           onToggleEstado={handleToggleEstado}
+          onVerHistorial={setClienteHistorial}
         />
       )}
 
@@ -110,6 +130,12 @@ export default function ClientesPage() {
         onClose={() => setClienteEliminar(null)}
         onConfirm={handleEliminar}
         cliente={clienteEliminar}
+      />
+
+      <ClienteHistorialDialog
+        open={!!clienteHistorial}
+        onClose={() => setClienteHistorial(null)}
+        cliente={clienteHistorial}
       />
     </div>
   )

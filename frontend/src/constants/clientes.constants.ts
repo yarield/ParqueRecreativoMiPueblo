@@ -18,6 +18,11 @@ export const CLIENTES_LABELS = {
   sinClientes: 'No se encontraron clientes.',
   telefonoPlaceholder: '04XX-XXXXXXX',
   observacionesPlaceholder: 'Observaciones adicionales...',
+  filtrarFechaDesde: 'Desde',
+  filtrarFechaHasta: 'Hasta',
+  historial: 'Historial de facturas',
+  verHistorial: 'Historial',
+  sinFacturas: 'Este cliente no tiene facturas registradas.',
 } as const
 
 export const CLIENTES_MESSAGES = {
@@ -34,4 +39,5 @@ export const CLIENTES_MESSAGES = {
   cancelar: 'Cancelar',
   editarBtn: 'Editar',
   eliminarBtn: 'Eliminar',
+  historialBtn: 'Historial',
 } as const

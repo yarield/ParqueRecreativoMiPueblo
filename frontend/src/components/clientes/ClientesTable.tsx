@@ -8,9 +8,10 @@ interface Props {
   onEdit: (cliente: Cliente) => void
   onDelete: (cliente: Cliente) => void
   onToggleEstado: (cliente: Cliente) => void
+  onVerHistorial: (cliente: Cliente) => void
 }
 
-export default function ClientesTable({ clientes, onEdit, onDelete, onToggleEstado }: Props) {
+export default function ClientesTable({ clientes, onEdit, onDelete, onToggleEstado, onVerHistorial }: Props) {
   if (clientes.length === 0) {
     return <p className="text-center text-gray-500 py-8">{CLIENTES_LABELS.sinClientes}</p>
   }
@@ -44,6 +45,9 @@ export default function ClientesTable({ clientes, onEdit, onDelete, onToggleEsta
               </td>
               <td className="px-4 py-3">
                 <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => onVerHistorial(cliente)}>
+                    {CLIENTES_MESSAGES.historialBtn}
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => onToggleEstado(cliente)}>
                     {cliente.estado === 'activo' ? CLIENTES_LABELS.inactivo : CLIENTES_LABELS.activo}
                   </Button>

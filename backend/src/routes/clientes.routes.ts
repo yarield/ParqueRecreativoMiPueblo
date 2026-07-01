@@ -42,7 +42,7 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
   try {
     const cliente = await prisma.clientes.findUnique({
       where: { id: Number(req.params.id) },
-      include: { facturas: { include: { paquetes: true } } }
+      include: { facturas: { include: { paquetes: { include: { categorias: true } } }, orderBy: { fecha_facturacion: 'desc' } } }
     })
     if (!cliente) {
       res.status(404).json({ error: 'Cliente no encontrado' })

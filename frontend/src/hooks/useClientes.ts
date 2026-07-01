@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { Cliente } from '@/types/clientes'
+import type { Cliente, ClienteConFacturas } from '@/types/clientes'
 import type { ClienteFormData } from '@/schemas/clientes.schema'
 
 const QUERY_KEY = 'clientes'
@@ -9,6 +9,14 @@ export function useClientes() {
   return useQuery<Cliente[]>({
     queryKey: [QUERY_KEY],
     queryFn: () => api.get<Cliente[]>('/clientes'),
+  })
+}
+
+export function useCliente(id: number | null) {
+  return useQuery<ClienteConFacturas>({
+    queryKey: [QUERY_KEY, id],
+    queryFn: () => api.get<ClienteConFacturas>(`/clientes/${id}`),
+    enabled: id !== null,
   })
 }
 

@@ -7,3 +7,19 @@ export interface Cliente {
   observaciones: string | null
   estado: 'activo' | 'inactivo'
 }
+
+export interface FacturaDeCliente {
+  id: number
+  fecha_facturacion: string
+  fecha_proximo_pago: string
+  monto: string
+  paquetes: {
+    nombre: string
+    precio: string
+    categorias: { nombre: string }
+  }
+}
+
+export interface ClienteConFacturas extends Cliente {
+  facturas: FacturaDeCliente[]
+}
