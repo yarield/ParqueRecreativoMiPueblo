@@ -6,5 +6,6 @@ export const LAYOUT_LABELS = {
     clientes: 'Clientes',
     paquetes: 'Paquetes',
     facturas: 'Facturas',
+    estadisticas: 'Estadísticas',
   },
 } as const

@@ -6,6 +6,7 @@ const navItems = [
   { to: '/clientes', label: LAYOUT_LABELS.nav.clientes },
   { to: '/paquetes', label: LAYOUT_LABELS.nav.paquetes },
   { to: '/facturas', label: LAYOUT_LABELS.nav.facturas },
+  { to: '/estadisticas', label: LAYOUT_LABELS.nav.estadisticas },
 ]
 
 export default function Sidebar() {
