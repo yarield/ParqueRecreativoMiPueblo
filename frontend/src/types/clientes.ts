@@ -23,3 +23,13 @@ export interface FacturaDeCliente {
 export interface ClienteConFacturas extends Cliente {
   facturas: FacturaDeCliente[]
 }
+
+export interface ClienteEnMora {
+  id: number
+  nombre: string
+  cedula: string
+  telefono: string | null
+  fecha_proximo_pago: string
+  paquete_nombre: string
+  dias_atraso: number
+}

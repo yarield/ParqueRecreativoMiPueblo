@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma'
 import { authMiddleware } from '../middlewares/auth'
+import { validate } from '../middlewares/validate'
+import { categoriaCreateSchema, categoriaUpdateSchema } from '../schemas/validation'
 
 const router = Router()
 
@@ -31,7 +33,7 @@ router.get('/:id', async (req, res, next) => {
 })
 
 // POST /api/categorias — protegido
-router.post('/', authMiddleware, async (req, res, next) => {
+router.post('/', authMiddleware, validate(categoriaCreateSchema), async (req, res, next) => {
   try {
     const categoria = await prisma.categorias.create({ data: req.body })
     res.status(201).json(categoria)
@@ -41,7 +43,7 @@ router.post('/', authMiddleware, async (req, res, next) => {
 })
 
 // PUT /api/categorias/:id — protegido
-router.put('/:id', authMiddleware, async (req, res, next) => {
+router.put('/:id', authMiddleware, validate(categoriaUpdateSchema), async (req, res, next) => {
   try {
     const categoria = await prisma.categorias.update({
       where: { id: Number(req.params.id) },

@@ -1,6 +1,8 @@
 import 'dotenv/config'
+import { env } from './config/env'
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import categoriasRouter from './routes/categorias.routes'
 import clientesRouter from './routes/clientes.routes'
 import paquetesRouter from './routes/paquetes.routes'
@@ -12,9 +14,12 @@ import { iniciarTareaEstados } from './tasks/actualizarEstados'
 import estadisticasRouter from './routes/estadisticas.routes'
 
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = env.PORT
 
-app.use(cors())
+app.use(helmet())
+// Si CORS_ORIGIN está definido, se restringe a ese origen; si no, se aceptan
+// todos (desarrollo o detrás de Nginx same-origin).
+app.use(cors({ origin: env.CORS_ORIGIN ?? true }))
 app.use(express.json())
 
 app.get('/api/health', (_req, res) => {

@@ -16,7 +16,8 @@ export const CLIENTES_LABELS = {
   filtrarEstado: 'Filtrar por estado',
   todos: 'Todos',
   sinClientes: 'No se encontraron clientes.',
-  telefonoPlaceholder: '04XX-XXXXXXX',
+  telefonoPlaceholder: 'XXXX-XXXX',
+  cedulaPlaceholder: 'X-XXXX-XXXX',
   observacionesPlaceholder: 'Observaciones adicionales...',
   filtrarFechaDesde: 'Desde',
   filtrarFechaHasta: 'Hasta',
@@ -40,4 +41,6 @@ export const CLIENTES_MESSAGES = {
   editarBtn: 'Editar',
   eliminarBtn: 'Eliminar',
   historialBtn: 'Historial',
+  buscarBtn: 'Buscar',
+  limpiarFiltrosBtn: 'Limpiar filtros',
 } as const

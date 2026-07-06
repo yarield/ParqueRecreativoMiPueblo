@@ -1,16 +1,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { CLIENTES_LABELS, CLIENTES_MESSAGES } from '@/constants/clientes.constants'
-import type { Cliente } from '@/types/clientes'
+import type { ClienteDeleteDialogProps } from './clientes.types'
 
-interface Props {
-  open: boolean
-  onClose: () => void
-  onConfirm: () => Promise<void>
-  cliente: Cliente | null
-}
-
-export default function ClienteDeleteDialog({ open, onClose, onConfirm, cliente }: Props) {
+export default function ClienteDeleteDialog({ open, onClose, onConfirm, cliente }: ClienteDeleteDialogProps) {
   async function handleConfirm() {
     await onConfirm()
     onClose()

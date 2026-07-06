@@ -9,32 +9,18 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { facturaSchema } from '@/schemas/facturas.schema'
 import { FACTURAS_LABELS, FACTURAS_MESSAGES } from '@/constants/facturas.constants'
+import { calcularProximoPago } from '@/lib/date'
+import { calcularMontoDescuento } from '@/lib/descuentos'
+import type { DescuentoTipo } from '@/lib/descuentos'
 import type { FacturaFormData } from '@/schemas/facturas.schema'
-import type { Factura } from '@/types/facturas'
-import type { Cliente } from '@/types/clientes'
-import type { Paquete } from '@/types/paquetes'
-import type { Categoria } from '@/types/categorias'
+import type { FacturaFormDialogProps } from './facturas.types'
 
-interface Props {
-  open: boolean
-  onClose: () => void
-  onSubmit: (data: FacturaFormData) => Promise<void>
-  factura?: Factura
-  clientes: Cliente[]
-  paquetes: Paquete[]
-  categorias: Categoria[]
-}
-
-function sumarDias(fechaStr: string, dias: number): string {
-  const fecha = new Date(fechaStr + 'T00:00:00')
-  fecha.setDate(fecha.getDate() + dias)
-  return fecha.toISOString().slice(0, 10)
-}
-
-export default function FacturaFormDialog({ open, onClose, onSubmit, factura, clientes, paquetes, categorias }: Props) {
+export default function FacturaFormDialog({ open, onClose, onSubmit, factura, clientes, paquetes, categorias, facturas }: FacturaFormDialogProps) {
   const isEditing = !!factura
   const [cedulaInput, setCedulaInput] = useState('')
   const [categoriaFiltro, setCategoriaFiltro] = useState('todos')
+  const [descuentoManualTipo, setDescuentoManualTipo] = useState<DescuentoTipo>('porcentaje')
+  const [descuentoManualValor, setDescuentoManualValor] = useState(0)
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<FacturaFormData>({
     resolver: zodResolver(facturaSchema) as Resolver<FacturaFormData>,
@@ -53,38 +39,103 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
   const fechaFacturacion = watch('fecha_facturacion')
   const paqueteSeleccionado = paquetes.find((p) => p.id === Number(paqueteId))
 
+  // Historial de ciclos de ESTE paquete para este cliente (fecha de facturación
+  // + próximo pago). Se filtra por paquete porque cada paquete es una membresía
+  // independiente: un cliente puede tener varios a la vez con ciclos distintos.
+  // Sirve para anclar el próximo pago a su primera factura de ese paquete y
+  // detectar reingresos tras una pausa. Se excluye la factura que se edita.
+  const facturasCliente = clienteEncontrado && paqueteSeleccionado
+    ? facturas
+        .filter(
+          (f) =>
+            f.cliente_id === clienteEncontrado.id &&
+            f.paquete_id === paqueteSeleccionado.id &&
+            f.id !== factura?.id
+        )
+        .map((f) => ({
+          fecha_facturacion: f.fecha_facturacion.slice(0, 10),
+          fecha_proximo_pago: f.fecha_proximo_pago.slice(0, 10),
+        }))
+    : []
+  // Clave estable para las dependencias del efecto (evita recalcular en cada render).
+  const facturasClienteKey = facturasCliente
+    .map((f) => `${f.fecha_facturacion}:${f.fecha_proximo_pago}`)
+    .join('|')
+
+  // Desglose del monto: precio base del paquete, deducción automática del
+  // paquete (monto fijo o porcentaje) y descuento manual adicional. Ambos se
+  // resuelven a un monto absoluto y su suma no puede superar el precio base.
+  const precioBase = paqueteSeleccionado ? parseFloat(paqueteSeleccionado.precio) : 0
+  const deduccionPaquete = paqueteSeleccionado
+    ? calcularMontoDescuento(precioBase, paqueteSeleccionado.descuento_tipo, parseFloat(paqueteSeleccionado.descuento_valor))
+    : 0
+  const descuentoManualMonto = calcularMontoDescuento(precioBase, descuentoManualTipo, Number(descuentoManualValor) || 0)
+  const descuentoMonto = Math.min(precioBase, deduccionPaquete + descuentoManualMonto)
+  const montoFinal = Number((precioBase - descuentoMonto).toFixed(2))
+
   // Asignar cliente_id al encontrar el cliente por cédula
   useEffect(() => {
     setValue('cliente_id', clienteEncontrado?.id ?? 0)
   }, [clienteEncontrado?.id, setValue])
 
-  // Auto-calcular monto y fecha_proximo_pago al cambiar paquete o fecha
+  // Sincronizar los campos calculados con el formulario para que pasen validación
+  useEffect(() => {
+    setValue('precio_base', precioBase)
+    setValue('descuento_monto', Number(descuentoMonto.toFixed(2)))
+    setValue('monto', montoFinal)
+  }, [precioBase, descuentoMonto, montoFinal, setValue])
+
+  // Auto-calcular fecha_proximo_pago al cambiar paquete o fecha
   useEffect(() => {
     if (paqueteSeleccionado && fechaFacturacion) {
-      setValue('monto', parseFloat(paqueteSeleccionado.precio))
-      setValue('fecha_proximo_pago', sumarDias(fechaFacturacion, paqueteSeleccionado.duracion_dias))
+      setValue('fecha_proximo_pago', calcularProximoPago(fechaFacturacion, paqueteSeleccionado, facturasCliente))
     }
-  }, [paqueteSeleccionado?.id, fechaFacturacion, setValue])
+    // facturasCliente se representa por facturasClienteKey en las dependencias.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paqueteSeleccionado?.id, fechaFacturacion, facturasClienteKey, setValue])
 
-  // Poblar form al editar
+  // Poblar/limpiar el form cada vez que se abre el diálogo. Depender de `open`
+  // asegura que al reabrir para "Nueva factura" no queden datos de la anterior.
   useEffect(() => {
+    if (!open) return
     if (factura) {
       const cliente = clientes.find((c) => c.id === factura.cliente_id)
       setCedulaInput(cliente?.cedula ?? '')
       setCategoriaFiltro(String(factura.paquetes.categoria_id))
+      // El descuento manual es la parte del total que no proviene del paquete.
+      // Se reconstruye como monto fijo a partir de lo guardado.
+      const base = parseFloat(factura.precio_base)
+      const deduccionPaq = calcularMontoDescuento(
+        base,
+        factura.paquetes.descuento_tipo,
+        parseFloat(factura.paquetes.descuento_valor)
+      )
+      setDescuentoManualTipo('monto')
+      setDescuentoManualValor(Math.max(0, parseFloat(factura.descuento_monto) - deduccionPaq))
       reset({
         cliente_id: factura.cliente_id,
         paquete_id: factura.paquete_id,
         fecha_facturacion: factura.fecha_facturacion.slice(0, 10),
         fecha_proximo_pago: factura.fecha_proximo_pago.slice(0, 10),
+        precio_base: base,
+        descuento_monto: parseFloat(factura.descuento_monto),
         monto: parseFloat(factura.monto),
       })
     } else {
       setCedulaInput('')
       setCategoriaFiltro('todos')
-      reset({ fecha_facturacion: new Date().toISOString().slice(0, 10), cliente_id: 0, paquete_id: 0, monto: 0 })
+      setDescuentoManualTipo('porcentaje')
+      setDescuentoManualValor(0)
+      reset({
+        fecha_facturacion: new Date().toISOString().slice(0, 10),
+        cliente_id: 0,
+        paquete_id: 0,
+        precio_base: 0,
+        descuento_monto: 0,
+        monto: 0,
+      })
     }
-  }, [factura, clientes, reset])
+  }, [factura, clientes, reset, open])
 
   async function handleFormSubmit(data: FacturaFormData) {
     await onSubmit(data)
@@ -166,9 +217,52 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
             </div>
           </div>
 
+          {/* Desglose de descuentos */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label>{FACTURAS_LABELS.precioBase}</Label>
+              <Input type="number" value={precioBase.toFixed(2)} readOnly className="bg-gray-50" />
+            </div>
+
+            <div className="space-y-1">
+              <Label>{FACTURAS_LABELS.deduccionPaquete}</Label>
+              <Input value={deduccionPaquete.toFixed(2)} readOnly className="bg-gray-50" />
+            </div>
+          </div>
+
+          {/* Descuento manual adicional (monto fijo o porcentaje) */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label>{FACTURAS_LABELS.descuentoTipo}</Label>
+              <Select value={descuentoManualTipo} onValueChange={(v) => setDescuentoManualTipo(v as DescuentoTipo)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="porcentaje">{FACTURAS_LABELS.descuentoTipoPorcentaje}</SelectItem>
+                  <SelectItem value="monto">{FACTURAS_LABELS.descuentoTipoMonto}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label>{FACTURAS_LABELS.descuento}</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={descuentoManualValor}
+                onChange={(e) => setDescuentoManualValor(e.target.value === '' ? 0 : Number(e.target.value))}
+              />
+            </div>
+          </div>
+
           <div className="space-y-1">
             <Label>{FACTURAS_LABELS.monto}</Label>
-            <Input type="number" step="0.01" min="0" {...register('monto')} />
+            <Input type="number" value={montoFinal.toFixed(2)} readOnly className="bg-gray-50 font-medium" />
+            <p className="text-xs text-gray-500">
+              {FACTURAS_LABELS.descuentoTotal}: {descuentoMonto.toFixed(2)}
+            </p>
             {errors.monto && <p className="text-xs text-red-500">{errors.monto.message}</p>}
           </div>
 

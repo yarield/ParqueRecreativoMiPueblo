@@ -10,4 +10,11 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // En desarrollo, redirige /api al backend para usar la misma ruta relativa
+  // que en producción (detrás de Nginx/Cloudflare).
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000',
+    },
+  },
 })

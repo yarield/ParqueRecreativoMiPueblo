@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Declaraciones .d.ts emitidas por tsc -b (composite) dentro del código fuente
+frontend/**/*.d.ts
+*.tsbuildinfo

@@ -1,16 +1,9 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PAQUETES_LABELS, PAQUETES_MESSAGES } from '@/constants/paquetes.constants'
-import type { Paquete } from '@/types/paquetes'
+import type { PaquetesTableProps } from './paquetes.types'
 
-interface Props {
-  paquetes: Paquete[]
-  onEdit: (paquete: Paquete) => void
-  onDelete: (paquete: Paquete) => void
-  onToggleEstado: (paquete: Paquete) => void
-}
-
-export default function PaquetesTable({ paquetes, onEdit, onDelete, onToggleEstado }: Props) {
+export default function PaquetesTable({ paquetes, onEdit, onDelete, onToggleEstado }: PaquetesTableProps) {
   if (paquetes.length === 0) {
     return <p className="text-center text-gray-500 py-8">{PAQUETES_LABELS.sinPaquetes}</p>
   }
@@ -23,6 +16,7 @@ export default function PaquetesTable({ paquetes, onEdit, onDelete, onToggleEsta
             <th className="px-4 py-3 text-left">{PAQUETES_LABELS.nombre}</th>
             <th className="px-4 py-3 text-left">{PAQUETES_LABELS.categoria}</th>
             <th className="px-4 py-3 text-right">{PAQUETES_LABELS.precio}</th>
+            <th className="px-4 py-3 text-right">{PAQUETES_LABELS.deduccion}</th>
             <th className="px-4 py-3 text-right">{PAQUETES_LABELS.duracion}</th>
             <th className="px-4 py-3 text-left">{PAQUETES_LABELS.estado}</th>
             <th className="px-4 py-3 text-right">{PAQUETES_LABELS.acciones}</th>
@@ -34,6 +28,13 @@ export default function PaquetesTable({ paquetes, onEdit, onDelete, onToggleEsta
               <td className="px-4 py-3 font-medium">{paquete.nombre}</td>
               <td className="px-4 py-3 text-gray-600">{paquete.categorias.nombre}</td>
               <td className="px-4 py-3 text-right">{parseFloat(paquete.precio).toFixed(2)}</td>
+              <td className="px-4 py-3 text-right text-gray-600">
+                {parseFloat(paquete.descuento_valor) > 0
+                  ? paquete.descuento_tipo === 'porcentaje'
+                    ? `${parseFloat(paquete.descuento_valor).toFixed(2)}%`
+                    : parseFloat(paquete.descuento_valor).toFixed(2)
+                  : PAQUETES_LABELS.sinDescuento}
+              </td>
               <td className="px-4 py-3 text-right text-gray-600">{paquete.duracion_dias}d</td>
               <td className="px-4 py-3">
                 <Badge variant={paquete.estado === 'activo' ? 'default' : 'secondary'}>

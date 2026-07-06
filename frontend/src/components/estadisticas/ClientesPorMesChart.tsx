@@ -1,13 +1,9 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ESTADISTICAS_LABELS } from '@/constants/estadisticas.constants'
-import type { ClientesPorMes } from '@/types/estadisticas'
+import type { ClientesPorMesChartProps } from './estadisticas.types'
 
-interface Props {
-  datos: ClientesPorMes[]
-}
-
-export default function ClientesPorMesChart({ datos }: Props) {
+export default function ClientesPorMesChart({ datos }: ClientesPorMesChartProps) {
   return (
     <Card>
       <CardHeader>

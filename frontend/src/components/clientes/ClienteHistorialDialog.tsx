@@ -2,15 +2,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge'
 import { useCliente } from '@/hooks/useClientes'
 import { CLIENTES_LABELS } from '@/constants/clientes.constants'
-import type { Cliente } from '@/types/clientes'
+import { formatearFecha } from '@/lib/date'
+import type { ClienteHistorialDialogProps } from './clientes.types'
 
-interface Props {
-  open: boolean
-  onClose: () => void
-  cliente: Cliente | null
-}
-
-export default function ClienteHistorialDialog({ open, onClose, cliente }: Props) {
+export default function ClienteHistorialDialog({ open, onClose, cliente }: ClienteHistorialDialogProps) {
   const { data, isLoading } = useCliente(cliente?.id ?? null)
 
   const hoy = new Date()
@@ -50,10 +45,10 @@ export default function ClienteHistorialDialog({ open, onClose, cliente }: Props
                       <td className="px-4 py-3 text-gray-600">{f.paquetes.categorias.nombre}</td>
                       <td className="px-4 py-3 text-right">${parseFloat(f.monto).toFixed(2)}</td>
                       <td className="px-4 py-3 text-gray-600">
-                        {new Date(f.fecha_facturacion).toLocaleDateString('es-VE')}
+                        {formatearFecha(f.fecha_facturacion)}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {new Date(f.fecha_proximo_pago).toLocaleDateString('es-VE')}
+                        {formatearFecha(f.fecha_proximo_pago)}
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={vencido ? 'destructive' : 'default'}>

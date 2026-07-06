@@ -1,23 +1,26 @@
-import { useAuth } from '@/context/AuthContext'
-import { Button } from '@/components/ui/button'
+import ClientesEnMoraTable from '@/components/dashboard/ClientesEnMoraTable'
+import { useClientesEnMora, useUpdateCliente } from '@/hooks/useClientes'
+import { DASHBOARD_LABELS } from '@/constants/dashboard.constants'
+import type { ClienteEnMora } from '@/types/clientes'
 
 export default function DashboardPage() {
-  const { usuario, logout } = useAuth()
+  const { data: clientesEnMora = [], isLoading } = useClientesEnMora()
+  const updateCliente = useUpdateCliente()
+
+  async function handleMarcarInactivo(cliente: ClienteEnMora) {
+    await updateCliente.mutateAsync({ id: cliente.id, data: { estado: 'inactivo' } })
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Parque Recreativo Mi Pueblo</h1>
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-600">Hola, {usuario?.nombre}</span>
-          <Button variant="outline" size="sm" onClick={logout}>
-            Cerrar sesión
-          </Button>
-        </div>
-      </header>
-      <main className="p-6">
-        <p className="text-gray-500">Dashboard en construcción...</p>
-      </main>
+    <div className="space-y-4">
+      <h2 className="text-xl font-semibold">{DASHBOARD_LABELS.titulo}</h2>
+      <h3 className="text-sm font-medium text-gray-600">{DASHBOARD_LABELS.enMora}</h3>
+
+      {isLoading ? (
+        <p className="text-center text-gray-400 py-8">{DASHBOARD_LABELS.cargando}</p>
+      ) : (
+        <ClientesEnMoraTable clientes={clientesEnMora} onMarcarInactivo={handleMarcarInactivo} />
+      )}
     </div>
   )
 }

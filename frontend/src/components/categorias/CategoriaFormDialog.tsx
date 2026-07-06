@@ -8,16 +8,9 @@ import { Button } from '@/components/ui/button'
 import { categoriaSchema } from '@/schemas/categorias.schema'
 import { CATEGORIAS_LABELS, CATEGORIAS_MESSAGES } from '@/constants/categorias.constants'
 import type { CategoriaFormData } from '@/schemas/categorias.schema'
-import type { Categoria } from '@/types/categorias'
+import type { CategoriaFormDialogProps } from './categorias.types'
 
-interface Props {
-  open: boolean
-  onClose: () => void
-  onSubmit: (data: CategoriaFormData) => Promise<void>
-  categoria?: Categoria
-}
-
-export default function CategoriaFormDialog({ open, onClose, onSubmit, categoria }: Props) {
+export default function CategoriaFormDialog({ open, onClose, onSubmit, categoria }: CategoriaFormDialogProps) {
   const isEditing = !!categoria
 
   const { register, reset, handleSubmit, formState: { errors, isSubmitting } } = useForm<CategoriaFormData>({

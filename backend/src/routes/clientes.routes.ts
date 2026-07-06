@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma'
 import { authMiddleware } from '../middlewares/auth'
+import { validate } from '../middlewares/validate'
+import { clienteCreateSchema, clienteUpdateSchema } from '../schemas/validation'
 
 const router = Router()
 
@@ -37,6 +39,48 @@ router.get('/proximos-a-vencer', authMiddleware, async (_req, res, next) => {
   }
 })
 
+// GET /api/clientes/en-mora — protegido
+// Devuelve clientes activos cuya factura más reciente ya venció
+router.get('/en-mora', authMiddleware, async (_req, res, next) => {
+  try {
+    const hoy = new Date()
+
+    const clientesActivos = await prisma.clientes.findMany({
+      where: { estado: 'activo' },
+      include: {
+        facturas: {
+          orderBy: { fecha_proximo_pago: 'desc' },
+          take: 1,
+          include: { paquetes: { select: { nombre: true } } },
+        },
+      },
+    })
+
+    const enMora = clientesActivos
+      .filter((c) => c.facturas.length > 0 && c.facturas[0].fecha_proximo_pago < hoy)
+      .map((c) => {
+        const ultimaFactura = c.facturas[0]
+        const diasAtraso = Math.floor(
+          (hoy.getTime() - ultimaFactura.fecha_proximo_pago.getTime()) / (1000 * 60 * 60 * 24)
+        )
+        return {
+          id: c.id,
+          nombre: c.nombre,
+          cedula: c.cedula,
+          telefono: c.telefono,
+          fecha_proximo_pago: ultimaFactura.fecha_proximo_pago,
+          paquete_nombre: ultimaFactura.paquetes.nombre,
+          dias_atraso: diasAtraso,
+        }
+      })
+      .sort((a, b) => b.dias_atraso - a.dias_atraso)
+
+    res.json(enMora)
+  } catch (err) {
+    next(err)
+  }
+})
+
 // GET /api/clientes/:id — protegido
 router.get('/:id', authMiddleware, async (req, res, next) => {
   try {
@@ -55,9 +99,12 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
 })
 
 // POST /api/clientes — protegido
-router.post('/', authMiddleware, async (req, res, next) => {
+router.post('/', authMiddleware, validate(clienteCreateSchema), async (req, res, next) => {
   try {
-    const cliente = await prisma.clientes.create({ data: req.body })
+    const { fecha_inicio, ...resto } = req.body
+    const cliente = await prisma.clientes.create({
+      data: { ...resto, fecha_inicio: new Date(fecha_inicio) }
+    })
     res.status(201).json(cliente)
   } catch (err) {
     next(err)
@@ -65,11 +112,12 @@ router.post('/', authMiddleware, async (req, res, next) => {
 })
 
 // PUT /api/clientes/:id — protegido
-router.put('/:id', authMiddleware, async (req, res, next) => {
+router.put('/:id', authMiddleware, validate(clienteUpdateSchema), async (req, res, next) => {
   try {
+    const { fecha_inicio, ...resto } = req.body
     const cliente = await prisma.clientes.update({
       where: { id: Number(req.params.id) },
-      data: req.body
+      data: fecha_inicio ? { ...resto, fecha_inicio: new Date(fecha_inicio) } : resto
     })
     res.json(cliente)
   } catch (err) {

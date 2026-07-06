@@ -1,12 +1,25 @@
 import { Router } from 'express'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
+import rateLimit from 'express-rate-limit'
 import prisma from '../lib/prisma'
+import { authMiddleware } from '../middlewares/auth'
+import { env } from '../config/env'
 
 const router = Router()
 
-// POST /api/auth/register
-router.post('/register', async (req, res) => {
+// Limita intentos de login para frenar fuerza bruta (por IP).
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' },
+})
+
+// POST /api/auth/register — protegido: solo un usuario autenticado (admin) puede
+// crear cuentas nuevas. No hay registro público.
+router.post('/register', authMiddleware, async (req, res) => {
   const { nombre, email, password } = req.body
 
   if (!nombre || !email || !password) {
@@ -31,7 +44,7 @@ router.post('/register', async (req, res) => {
 })
 
 // POST /api/auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body
 
   if (!email || !password) {
@@ -53,7 +66,7 @@ router.post('/login', async (req, res) => {
 
   const token = jwt.sign(
     { id: usuario.id, email: usuario.email },
-    process.env.JWT_SECRET!,
+    env.JWT_SECRET,
     { expiresIn: '8h' }
   )
 

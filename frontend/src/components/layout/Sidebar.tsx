@@ -3,6 +3,7 @@ import { Separator } from '@/components/ui/separator'
 import { LAYOUT_LABELS } from '@/constants/layout.constants'
 
 const navItems = [
+  { to: '/dashboard', label: LAYOUT_LABELS.nav.dashboard },
   { to: '/clientes', label: LAYOUT_LABELS.nav.clientes },
   { to: '/paquetes', label: LAYOUT_LABELS.nav.paquetes },
   { to: '/facturas', label: LAYOUT_LABELS.nav.facturas },

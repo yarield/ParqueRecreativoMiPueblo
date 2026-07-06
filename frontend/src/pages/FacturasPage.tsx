@@ -144,6 +144,7 @@ export default function FacturasPage() {
         clientes={clientes}
         paquetes={paquetes}
         categorias={categorias}
+        facturas={facturas}
       />
 
       <FacturaDeleteDialog

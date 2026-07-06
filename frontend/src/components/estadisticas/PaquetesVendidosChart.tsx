@@ -1,13 +1,9 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ESTADISTICAS_LABELS } from '@/constants/estadisticas.constants'
-import type { PaqueteVendido } from '@/types/estadisticas'
+import type { PaquetesVendidosChartProps } from './estadisticas.types'
 
-interface Props {
-  datos: PaqueteVendido[]
-}
-
-export default function PaquetesVendidosChart({ datos }: Props) {
+export default function PaquetesVendidosChart({ datos }: PaquetesVendidosChartProps) {
   return (
     <Card>
       <CardHeader>

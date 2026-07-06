@@ -1,6 +1,8 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma'
 import { authMiddleware } from '../middlewares/auth'
+import { validate } from '../middlewares/validate'
+import { paqueteCreateSchema, paqueteUpdateSchema } from '../schemas/validation'
 
 const router = Router()
 
@@ -34,8 +36,13 @@ router.get('/:id', async (req, res, next) => {
 })
 
 // POST /api/paquetes — protegido
-router.post('/', authMiddleware, async (req, res, next) => {
+router.post('/', authMiddleware, validate(paqueteCreateSchema), async (req, res, next) => {
   try {
+    const categoria = await prisma.categorias.findUnique({ where: { id: req.body.categoria_id } })
+    if (!categoria) {
+      res.status(400).json({ error: 'La categoría seleccionada no existe' })
+      return
+    }
     const paquete = await prisma.paquetes.create({ data: req.body })
     res.status(201).json(paquete)
   } catch (err) {
@@ -44,8 +51,15 @@ router.post('/', authMiddleware, async (req, res, next) => {
 })
 
 // PUT /api/paquetes/:id — protegido
-router.put('/:id', authMiddleware, async (req, res, next) => {
+router.put('/:id', authMiddleware, validate(paqueteUpdateSchema), async (req, res, next) => {
   try {
+    if (req.body.categoria_id !== undefined) {
+      const categoria = await prisma.categorias.findUnique({ where: { id: req.body.categoria_id } })
+      if (!categoria) {
+        res.status(400).json({ error: 'La categoría seleccionada no existe' })
+        return
+      }
+    }
     const paquete = await prisma.paquetes.update({
       where: { id: Number(req.params.id) },
       data: req.body

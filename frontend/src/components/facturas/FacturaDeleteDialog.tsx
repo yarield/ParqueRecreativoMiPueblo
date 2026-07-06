@@ -1,16 +1,9 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { FACTURAS_LABELS, FACTURAS_MESSAGES } from '@/constants/facturas.constants'
-import type { Factura } from '@/types/facturas'
+import type { FacturaDeleteDialogProps } from './facturas.types'
 
-interface Props {
-  open: boolean
-  onClose: () => void
-  onConfirm: () => Promise<void>
-  factura: Factura | null
-}
-
-export default function FacturaDeleteDialog({ open, onClose, onConfirm, factura }: Props) {
+export default function FacturaDeleteDialog({ open, onClose, onConfirm, factura }: FacturaDeleteDialogProps) {
   async function handleConfirm() {
     await onConfirm()
     onClose()

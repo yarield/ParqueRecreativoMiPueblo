@@ -1,14 +1,9 @@
 import { Button } from '@/components/ui/button'
 import { FACTURAS_LABELS, FACTURAS_MESSAGES } from '@/constants/facturas.constants'
-import type { Factura } from '@/types/facturas'
+import { formatearFecha } from '@/lib/date'
+import type { FacturasTableProps } from './facturas.types'
 
-interface Props {
-  facturas: Factura[]
-  onEdit: (factura: Factura) => void
-  onDelete: (factura: Factura) => void
-}
-
-export default function FacturasTable({ facturas, onEdit, onDelete }: Props) {
+export default function FacturasTable({ facturas, onEdit, onDelete }: FacturasTableProps) {
   if (facturas.length === 0) {
     return <p className="text-center text-gray-500 py-8">{FACTURAS_LABELS.sinFacturas}</p>
   }
@@ -22,6 +17,7 @@ export default function FacturasTable({ facturas, onEdit, onDelete }: Props) {
             <th className="px-4 py-3 text-left">{FACTURAS_LABELS.cedula}</th>
             <th className="px-4 py-3 text-left">{FACTURAS_LABELS.paquete}</th>
             <th className="px-4 py-3 text-left">{FACTURAS_LABELS.categoria}</th>
+            <th className="px-4 py-3 text-right">{FACTURAS_LABELS.descuentoTotal}</th>
             <th className="px-4 py-3 text-right">{FACTURAS_LABELS.monto}</th>
             <th className="px-4 py-3 text-left">{FACTURAS_LABELS.fechaFacturacion}</th>
             <th className="px-4 py-3 text-left">{FACTURAS_LABELS.fechaProximoPago}</th>
@@ -35,12 +31,15 @@ export default function FacturasTable({ facturas, onEdit, onDelete }: Props) {
               <td className="px-4 py-3 text-gray-600">{f.clientes.cedula}</td>
               <td className="px-4 py-3 text-gray-600">{f.paquetes.nombre}</td>
               <td className="px-4 py-3 text-gray-600">{f.paquetes.categorias.nombre}</td>
+              <td className="px-4 py-3 text-right text-gray-600">
+                {parseFloat(f.descuento_monto) > 0 ? parseFloat(f.descuento_monto).toFixed(2) : '—'}
+              </td>
               <td className="px-4 py-3 text-right">{parseFloat(f.monto).toFixed(2)}</td>
               <td className="px-4 py-3 text-gray-600">
-                {new Date(f.fecha_facturacion).toLocaleDateString('es-VE')}
+                {formatearFecha(f.fecha_facturacion)}
               </td>
               <td className="px-4 py-3 text-gray-600">
-                {new Date(f.fecha_proximo_pago).toLocaleDateString('es-VE')}
+                {formatearFecha(f.fecha_proximo_pago)}
               </td>
               <td className="px-4 py-3">
                 <div className="flex justify-end gap-2">

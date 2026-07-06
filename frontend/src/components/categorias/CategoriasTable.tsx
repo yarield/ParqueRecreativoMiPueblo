@@ -1,14 +1,8 @@
 import { Button } from '@/components/ui/button'
 import { CATEGORIAS_LABELS, CATEGORIAS_MESSAGES } from '@/constants/categorias.constants'
-import type { Categoria } from '@/types/categorias'
+import type { CategoriasTableProps } from './categorias.types'
 
-interface Props {
-  categorias: Categoria[]
-  onEdit: (categoria: Categoria) => void
-  onDelete: (categoria: Categoria) => void
-}
-
-export default function CategoriasTable({ categorias, onEdit, onDelete }: Props) {
+export default function CategoriasTable({ categorias, onEdit, onDelete }: CategoriasTableProps) {
   if (categorias.length === 0) {
     return <p className="text-center text-gray-500 py-8">{CATEGORIAS_LABELS.sinCategorias}</p>
   }

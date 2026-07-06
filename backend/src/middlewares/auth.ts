@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
+import { env } from '../config/env'
 
 export interface AuthRequest extends Request {
   usuarioId?: number
@@ -17,7 +18,7 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
   const token = authHeader.split(' ')[1]
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET!) as { id: number; email: string }
+    const payload = jwt.verify(token, env.JWT_SECRET) as { id: number; email: string }
     req.usuarioId = payload.id
     req.usuarioEmail = payload.email
     next()

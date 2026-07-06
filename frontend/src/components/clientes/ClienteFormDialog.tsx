@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -9,17 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { clienteSchema } from '@/schemas/clientes.schema'
 import { CLIENTES_LABELS, CLIENTES_MESSAGES } from '@/constants/clientes.constants'
 import type { ClienteFormData } from '@/schemas/clientes.schema'
-import type { Cliente } from '@/types/clientes'
+import type { ClienteFormDialogProps } from './clientes.types'
 
-interface Props {
-  open: boolean
-  onClose: () => void
-  onSubmit: (data: ClienteFormData) => Promise<void>
-  cliente?: Cliente
-}
-
-export default function ClienteFormDialog({ open, onClose, onSubmit, cliente }: Props) {
+export default function ClienteFormDialog({ open, onClose, onSubmit, cliente }: ClienteFormDialogProps) {
   const isEditing = !!cliente
+  const [formError, setFormError] = useState<string | null>(null)
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<ClienteFormData>({
     resolver: zodResolver(clienteSchema),
@@ -27,6 +22,8 @@ export default function ClienteFormDialog({ open, onClose, onSubmit, cliente }: 
   })
 
   useEffect(() => {
+    if (!open) return
+    setFormError(null)
     if (cliente) {
       reset({
         nombre: cliente.nombre,
@@ -39,11 +36,16 @@ export default function ClienteFormDialog({ open, onClose, onSubmit, cliente }: 
     } else {
       reset({ estado: 'activo' })
     }
-  }, [cliente, reset])
+  }, [cliente, reset, open])
 
   async function handleFormSubmit(data: ClienteFormData) {
-    await onSubmit(data)
-    onClose()
+    setFormError(null)
+    try {
+      await onSubmit(data)
+      onClose()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : (isEditing ? CLIENTES_MESSAGES.errorActualizar : CLIENTES_MESSAGES.errorCrear))
+    }
   }
 
   return (
@@ -54,6 +56,12 @@ export default function ClienteFormDialog({ open, onClose, onSubmit, cliente }: 
         </DialogHeader>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 mt-2">
+          {formError && (
+            <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-600">
+              {formError}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>{CLIENTES_LABELS.nombre}</Label>
@@ -63,7 +71,7 @@ export default function ClienteFormDialog({ open, onClose, onSubmit, cliente }: 
 
             <div className="space-y-1">
               <Label>{CLIENTES_LABELS.cedula}</Label>
-              <Input placeholder="V-12345678" {...register('cedula')} />
+              <Input placeholder={CLIENTES_LABELS.cedulaPlaceholder} {...register('cedula')} />
               {errors.cedula && <p className="text-xs text-red-500">{errors.cedula.message}</p>}
             </div>
           </div>
@@ -104,6 +112,7 @@ export default function ClienteFormDialog({ open, onClose, onSubmit, cliente }: 
               {CLIENTES_MESSAGES.cancelar}
             </Button>
             <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="size-4 animate-spin" />}
               {isSubmitting ? CLIENTES_MESSAGES.guardando : CLIENTES_MESSAGES.guardar}
             </Button>
           </div>

@@ -7,7 +7,7 @@ import ClienteFormDialog from '@/components/clientes/ClienteFormDialog'
 import ClienteDeleteDialog from '@/components/clientes/ClienteDeleteDialog'
 import ClienteHistorialDialog from '@/components/clientes/ClienteHistorialDialog'
 import { useClientes, useCreateCliente, useUpdateCliente, useDeleteCliente } from '@/hooks/useClientes'
-import { CLIENTES_LABELS } from '@/constants/clientes.constants'
+import { CLIENTES_LABELS, CLIENTES_MESSAGES } from '@/constants/clientes.constants'
 import type { Cliente } from '@/types/clientes'
 import type { ClienteFormData } from '@/schemas/clientes.schema'
 
@@ -17,6 +17,7 @@ export default function ClientesPage() {
   const updateCliente = useUpdateCliente()
   const deleteCliente = useDeleteCliente()
 
+  const [busquedaInput, setBusquedaInput] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'activo' | 'inactivo'>('todos')
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('')
@@ -42,6 +43,18 @@ export default function ClientesPage() {
       return coincideBusqueda && coincideEstado && coincideFechaDesde && coincideFechaHasta
     })
   }, [clientes, busqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta])
+
+  function handleBuscar() {
+    setBusqueda(busquedaInput)
+  }
+
+  function handleLimpiarFiltros() {
+    setBusquedaInput('')
+    setBusqueda('')
+    setFiltroEstado('todos')
+    setFiltroFechaDesde('')
+    setFiltroFechaHasta('')
+  }
 
   async function handleSubmitForm(data: ClienteFormData) {
     if (clienteEditar) {
@@ -73,9 +86,13 @@ export default function ClientesPage() {
         <Input
           className="w-56"
           placeholder={CLIENTES_LABELS.buscar}
-          value={busqueda}
-          onChange={(e) => setBusqueda(e.target.value)}
+          value={busquedaInput}
+          onChange={(e) => setBusquedaInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleBuscar() }}
         />
+        <Button variant="outline" onClick={handleBuscar}>
+          {CLIENTES_MESSAGES.buscarBtn}
+        </Button>
         <Select value={filtroEstado} onValueChange={(v) => setFiltroEstado(v as typeof filtroEstado)}>
           <SelectTrigger className="w-40">
             <SelectValue />
@@ -104,6 +121,9 @@ export default function ClientesPage() {
             onChange={(e) => setFiltroFechaHasta(e.target.value)}
           />
         </div>
+        <Button variant="outline" onClick={handleLimpiarFiltros}>
+          {CLIENTES_MESSAGES.limpiarFiltrosBtn}
+        </Button>
       </div>
 
       {isLoading ? (

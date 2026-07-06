@@ -3,6 +3,7 @@ export const LAYOUT_LABELS = {
   cerrarSesion: 'Cerrar sesión',
   hola: 'Hola',
   nav: {
+    dashboard: 'Dashboard',
     clientes: 'Clientes',
     paquetes: 'Paquetes',
     facturas: 'Facturas',

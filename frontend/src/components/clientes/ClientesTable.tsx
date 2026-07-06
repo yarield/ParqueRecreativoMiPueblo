@@ -1,17 +1,17 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { CLIENTES_LABELS, CLIENTES_MESSAGES } from '@/constants/clientes.constants'
-import type { Cliente } from '@/types/clientes'
+import { formatearFecha } from '@/lib/date'
+import type { ClientesTableProps } from './clientes.types'
 
-interface Props {
-  clientes: Cliente[]
-  onEdit: (cliente: Cliente) => void
-  onDelete: (cliente: Cliente) => void
-  onToggleEstado: (cliente: Cliente) => void
-  onVerHistorial: (cliente: Cliente) => void
-}
-
-export default function ClientesTable({ clientes, onEdit, onDelete, onToggleEstado, onVerHistorial }: Props) {
+export default function ClientesTable({ clientes, onEdit, onDelete, onToggleEstado, onVerHistorial }: ClientesTableProps) {
   if (clientes.length === 0) {
     return <p className="text-center text-gray-500 py-8">{CLIENTES_LABELS.sinClientes}</p>
   }
@@ -36,7 +36,7 @@ export default function ClientesTable({ clientes, onEdit, onDelete, onToggleEsta
               <td className="px-4 py-3 text-gray-600">{cliente.cedula}</td>
               <td className="px-4 py-3 text-gray-600">{cliente.telefono ?? '—'}</td>
               <td className="px-4 py-3 text-gray-600">
-                {new Date(cliente.fecha_inicio).toLocaleDateString('es-VE')}
+                {formatearFecha(cliente.fecha_inicio)}
               </td>
               <td className="px-4 py-3">
                 <Badge variant={cliente.estado === 'activo' ? 'default' : 'secondary'}>
@@ -44,19 +44,29 @@ export default function ClientesTable({ clientes, onEdit, onDelete, onToggleEsta
                 </Badge>
               </td>
               <td className="px-4 py-3">
-                <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="outline" onClick={() => onVerHistorial(cliente)}>
-                    {CLIENTES_MESSAGES.historialBtn}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => onToggleEstado(cliente)}>
-                    {cliente.estado === 'activo' ? CLIENTES_LABELS.inactivo : CLIENTES_LABELS.activo}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => onEdit(cliente)}>
-                    {CLIENTES_MESSAGES.editarBtn}
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => onDelete(cliente)}>
-                    {CLIENTES_MESSAGES.eliminarBtn}
-                  </Button>
+                <div className="flex justify-end">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline">
+                        {CLIENTES_MESSAGES.editarBtn}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onSelect={() => onEdit(cliente)}>
+                        {CLIENTES_MESSAGES.editarBtn}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => onVerHistorial(cliente)}>
+                        {CLIENTES_MESSAGES.historialBtn}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => onToggleEstado(cliente)}>
+                        {cliente.estado === 'activo' ? CLIENTES_LABELS.inactivo : CLIENTES_LABELS.activo}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem variant="destructive" onSelect={() => onDelete(cliente)}>
+                        {CLIENTES_MESSAGES.eliminarBtn}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </td>
             </tr>
