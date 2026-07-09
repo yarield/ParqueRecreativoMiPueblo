@@ -1,6 +1,3 @@
--- AlterTable
-ALTER TABLE "categorias" ADD COLUMN     "descuento_porcentaje" DECIMAL(5,2) NOT NULL DEFAULT 0;
-
--- AlterTable
-ALTER TABLE "facturas" ADD COLUMN     "descuento_porcentaje" DECIMAL(5,2) NOT NULL DEFAULT 0,
-ADD COLUMN     "precio_base" DECIMAL(10,2) NOT NULL DEFAULT 0;
+-- Facturas: precio base antes de aplicar deducción (para historial)
+ALTER TABLE "facturas" ADD COLUMN "precio_base" DECIMAL(10,2) NOT NULL DEFAULT 0;
+ALTER TABLE "facturas" ADD CONSTRAINT "chk_facturas_precio_base" CHECK ("precio_base" >= 0);
