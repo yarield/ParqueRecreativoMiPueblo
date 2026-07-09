@@ -71,7 +71,7 @@ export default function PaqueteFormDialog({ open, onClose, onSubmit, paquete, ca
             {errors.nombre && <p className="text-xs text-red-500">{errors.nombre.message}</p>}
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>{PAQUETES_LABELS.precio}</Label>
               <Input type="number" step="0.01" min="0" {...register('precio')} />
@@ -82,22 +82,6 @@ export default function PaqueteFormDialog({ open, onClose, onSubmit, paquete, ca
               <Label>{PAQUETES_LABELS.duracion}</Label>
               <Input type="number" min="1" {...register('duracion_dias')} />
               {errors.duracion_dias && <p className="text-xs text-red-500">{errors.duracion_dias.message}</p>}
-            </div>
-
-            <div className="space-y-1">
-              <Label>{PAQUETES_LABELS.duracionUnidad}</Label>
-              <Select
-                value={watch('duracion_unidad')}
-                onValueChange={(v) => setValue('duracion_unidad', v as 'dias' | 'meses')}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dias">{PAQUETES_LABELS.unidadDias}</SelectItem>
-                  <SelectItem value="meses">{PAQUETES_LABELS.unidadMeses}</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
 

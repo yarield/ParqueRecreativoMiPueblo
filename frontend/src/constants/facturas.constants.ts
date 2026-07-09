@@ -29,6 +29,7 @@ export const FACTURAS_LABELS = {
   sinFacturas: 'No se encontraron facturas.',
   seleccionarCategoria: 'Seleccionar categoría',
   seleccionarPaquete: 'Seleccionar paquete',
+  sinPaquetesCategoria: 'No hay paquetes disponibles para esta categoría',
   montoAutoCalculado: 'Auto-calculado por paquete, editable',
   fechaAutoCalculada: 'Auto-calculada por duración, editable',
 } as const

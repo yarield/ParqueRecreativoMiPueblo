@@ -27,16 +27,27 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
     defaultValues: { fecha_facturacion: new Date().toISOString().slice(0, 10) },
   })
 
-  const clienteEncontrado = clientes.find(
-    (c) => c.cedula.toLowerCase() === cedulaInput.toLowerCase().trim()
-  )
-
-  const paquetesFiltrados = categoriaFiltro === 'todos'
-    ? paquetes
-    : paquetes.filter((p) => String(p.categoria_id) === categoriaFiltro)
+  // Normaliza cédulas para comparar: minúsculas y sin separadores ni caracteres
+  // invisibles. Así "S-2011-1222", "s20111222" o un pegado con espacios coinciden.
+  const normalizarCedula = (c: string) => c.toLowerCase().replace(/[^a-z0-9]/g, '')
+  const clienteEncontrado = cedulaInput.trim()
+    ? clientes.find((c) => normalizarCedula(c.cedula) === normalizarCedula(cedulaInput))
+    : undefined
 
   const paqueteId = watch('paquete_id')
   const fechaFacturacion = watch('fecha_facturacion')
+
+  // Solo se pueden facturar paquetes activos. Se conserva el paquete ya
+  // seleccionado (aunque esté inactivo) para no romper la edición de una
+  // factura vieja cuyo paquete se desactivó después.
+  const paquetesDisponibles = paquetes.filter(
+    (p) => p.estado === 'activo' || p.id === Number(paqueteId)
+  )
+
+  const paquetesFiltrados = categoriaFiltro === 'todos'
+    ? paquetesDisponibles
+    : paquetesDisponibles.filter((p) => String(p.categoria_id) === categoriaFiltro)
+
   const paqueteSeleccionado = paquetes.find((p) => p.id === Number(paqueteId))
 
   // Historial de ciclos de ESTE paquete para este cliente (fecha de facturación
@@ -187,7 +198,16 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
               <Label>{FACTURAS_LABELS.paquete}</Label>
               <Select
                 value={String(watch('paquete_id') || '')}
-                onValueChange={(v) => setValue('paquete_id', Number(v))}
+                disabled={paquetesFiltrados.length === 0}
+                onValueChange={(v) => {
+                  const id = Number(v)
+                  setValue('paquete_id', id)
+                  // Si la categoría no está seleccionada, adoptar la del paquete elegido.
+                  if (categoriaFiltro === 'todos') {
+                    const p = paquetes.find((x) => x.id === id)
+                    if (p) setCategoriaFiltro(String(p.categoria_id))
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder={FACTURAS_LABELS.seleccionarPaquete} />
@@ -198,6 +218,9 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
                   ))}
                 </SelectContent>
               </Select>
+              {paquetesFiltrados.length === 0 && (
+                <p className="text-xs text-gray-500">{FACTURAS_LABELS.sinPaquetesCategoria}</p>
+              )}
               {errors.paquete_id && <p className="text-xs text-red-500">{errors.paquete_id.message}</p>}
             </div>
           </div>
