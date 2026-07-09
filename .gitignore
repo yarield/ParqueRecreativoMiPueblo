@@ -25,4 +25,6 @@ dist-ssr
 
 # Declaraciones .d.ts emitidas por tsc -b (composite) dentro del código fuente
 frontend/**/*.d.ts
+# ...pero vite-env.d.ts es código fuente (declara módulos como *.css) y sí se versiona
+!frontend/src/vite-env.d.ts
 *.tsbuildinfo
