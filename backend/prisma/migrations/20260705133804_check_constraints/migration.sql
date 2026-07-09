@@ -9,5 +9,4 @@ ALTER TABLE "paquetes" ADD CONSTRAINT "chk_paquetes_precio" CHECK ("precio" >= 0
 ALTER TABLE "paquetes" ADD CONSTRAINT "chk_paquetes_duracion" CHECK ("duracion_dias" > 0);
 ALTER TABLE "paquetes" ADD CONSTRAINT "chk_paquetes_desc_valor" CHECK ("descuento_valor" >= 0);
 ALTER TABLE "facturas" ADD CONSTRAINT "chk_facturas_monto" CHECK ("monto" >= 0);
-ALTER TABLE "facturas" ADD CONSTRAINT "chk_facturas_precio_base" CHECK ("precio_base" >= 0);
 ALTER TABLE "facturas" ADD CONSTRAINT "chk_facturas_descuento" CHECK ("descuento_monto" >= 0);
