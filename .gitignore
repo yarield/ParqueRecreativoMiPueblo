@@ -28,3 +28,6 @@ frontend/**/*.d.ts
 # ...pero vite-env.d.ts es código fuente (declara módulos como *.css) y sí se versiona
 !frontend/src/vite-env.d.ts
 *.tsbuildinfo
+
+# Ajustes personales de Claude Code (los del proyecto sí se versionan)
+.claude/settings.local.json

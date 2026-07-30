@@ -4,6 +4,7 @@ export interface Resumen {
   clientesInactivos: number
   tasaCancelacion: number
   totalFacturas: number
+  totalFacturado: number
   totalGanancias: number
 }
 
@@ -20,4 +21,5 @@ export interface PaqueteVendido {
 export interface GananciasPorMes {
   mes: string
   total: number
+  facturado: number
 }

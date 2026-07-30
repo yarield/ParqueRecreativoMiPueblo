@@ -10,11 +10,10 @@ export interface FacturaCliente {
 export interface FacturaPaquete {
   id: number
   nombre: string
-  precio: string
+  precio: string | null
+  precio_abierto: boolean
   duracion_dias: number
   categoria_id: number
-  descuento_tipo: 'porcentaje' | 'monto'
-  descuento_valor: string
   categorias: Categoria
 }
 
@@ -30,10 +29,16 @@ export interface Factura {
   paquete_id: number
   usuario_id: number | null
   fecha_facturacion: string
-  fecha_proximo_pago: string
+  // null = pago único (paquete de precio abierto), sin ciclo siguiente.
+  fecha_proximo_pago: string | null
   precio_base: string
   descuento_monto: string
   monto: string
+  origen: string | null
+  comision_tipo: 'porcentaje' | 'monto'
+  comision_valor: string
+  comision_monto: string
+  monto_neto: string
   clientes: FacturaCliente
   paquetes: FacturaPaquete
   usuarios: FacturaUsuario | null

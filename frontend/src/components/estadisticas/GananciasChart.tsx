@@ -44,7 +44,8 @@ export default function GananciasChart() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v) => [`$${Number(v).toFixed(2)}`, ESTADISTICAS_LABELS.ganancias]} />
+              <Tooltip formatter={(v, name) => [`$${Number(v).toFixed(2)}`, name]} />
+              <Bar dataKey="facturado" name={ESTADISTICAS_LABELS.facturado} fill="#c4b5fd" radius={[3, 3, 0, 0]} />
               <Bar dataKey="total" name={ESTADISTICAS_LABELS.ganancias} fill="#8b5cf6" radius={[3, 3, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

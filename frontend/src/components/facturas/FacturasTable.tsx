@@ -19,6 +19,8 @@ export default function FacturasTable({ facturas, onEdit, onDelete }: FacturasTa
             <th className="px-4 py-3 text-left">{FACTURAS_LABELS.categoria}</th>
             <th className="px-4 py-3 text-right">{FACTURAS_LABELS.descuentoTotal}</th>
             <th className="px-4 py-3 text-right">{FACTURAS_LABELS.monto}</th>
+            <th className="px-4 py-3 text-right">{FACTURAS_LABELS.comision}</th>
+            <th className="px-4 py-3 text-right">{FACTURAS_LABELS.montoNeto}</th>
             <th className="px-4 py-3 text-left">{FACTURAS_LABELS.fechaFacturacion}</th>
             <th className="px-4 py-3 text-left">{FACTURAS_LABELS.fechaProximoPago}</th>
             <th className="px-4 py-3 text-right">{FACTURAS_LABELS.acciones}</th>
@@ -35,11 +37,21 @@ export default function FacturasTable({ facturas, onEdit, onDelete }: FacturasTa
                 {parseFloat(f.descuento_monto) > 0 ? parseFloat(f.descuento_monto).toFixed(2) : '—'}
               </td>
               <td className="px-4 py-3 text-right">{parseFloat(f.monto).toFixed(2)}</td>
+              <td className="px-4 py-3 text-right text-gray-600">
+                {parseFloat(f.comision_monto) > 0 ? (
+                  <span title={f.origen ?? undefined}>−{parseFloat(f.comision_monto).toFixed(2)}</span>
+                ) : (
+                  '—'
+                )}
+              </td>
+              <td className="px-4 py-3 text-right font-medium">{parseFloat(f.monto_neto).toFixed(2)}</td>
               <td className="px-4 py-3 text-gray-600">
                 {formatearFecha(f.fecha_facturacion)}
               </td>
               <td className="px-4 py-3 text-gray-600">
-                {formatearFecha(f.fecha_proximo_pago)}
+                {f.fecha_proximo_pago
+                  ? formatearFecha(f.fecha_proximo_pago)
+                  : FACTURAS_LABELS.pagoUnico}
               </td>
               <td className="px-4 py-3">
                 <div className="flex justify-end gap-2">

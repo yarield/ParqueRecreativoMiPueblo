@@ -61,11 +61,13 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
           (f) =>
             f.cliente_id === clienteEncontrado.id &&
             f.paquete_id === paqueteSeleccionado.id &&
-            f.id !== factura?.id
+            f.id !== factura?.id &&
+            // Las de pago único no forman ciclo, así que no anclan nada.
+            f.fecha_proximo_pago !== null
         )
         .map((f) => ({
           fecha_facturacion: f.fecha_facturacion.slice(0, 10),
-          fecha_proximo_pago: f.fecha_proximo_pago.slice(0, 10),
+          fecha_proximo_pago: f.fecha_proximo_pago!.slice(0, 10),
         }))
     : []
   // Clave estable para las dependencias del efecto (evita recalcular en cada render).
@@ -73,37 +75,51 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
     .map((f) => `${f.fecha_facturacion}:${f.fecha_proximo_pago}`)
     .join('|')
 
-  // Desglose del monto: precio base del paquete, deducción automática del
-  // paquete (monto fijo o porcentaje) y descuento manual adicional. Ambos se
-  // resuelven a un monto absoluto y su suma no puede superar el precio base.
-  const precioBase = paqueteSeleccionado ? parseFloat(paqueteSeleccionado.precio) : 0
-  const deduccionPaquete = paqueteSeleccionado
-    ? calcularMontoDescuento(precioBase, paqueteSeleccionado.descuento_tipo, parseFloat(paqueteSeleccionado.descuento_valor))
-    : 0
-  const descuentoManualMonto = calcularMontoDescuento(precioBase, descuentoManualTipo, Number(descuentoManualValor) || 0)
-  const descuentoMonto = Math.min(precioBase, deduccionPaquete + descuentoManualMonto)
+  // En un paquete de precio abierto el precio base lo escribe el usuario en la
+  // factura (el del paquete, si lo hay, solo sirve de valor inicial); en uno de
+  // precio fijo se toma del paquete y el campo queda bloqueado.
+  const esPrecioAbierto = paqueteSeleccionado?.precio_abierto ?? false
+  const precioPaquete = paqueteSeleccionado?.precio != null ? parseFloat(paqueteSeleccionado.precio) : 0
+  const precioBase = esPrecioAbierto ? Number(watch('precio_base')) || 0 : precioPaquete
+
+  // Desglose del monto: precio base menos el descuento de esta factura, que se
+  // resuelve a un monto absoluto y no puede superar el precio base.
+  const descuentoMonto = calcularMontoDescuento(precioBase, descuentoManualTipo, Number(descuentoManualValor) || 0)
   const montoFinal = Number((precioBase - descuentoMonto).toFixed(2))
+
+  // La comisión del canal se calcula sobre lo que paga el cliente y no lo
+  // reduce: solo separa la parte que se lleva el canal del neto del negocio.
+  const comisionTipo = watch('comision_tipo') ?? 'porcentaje'
+  const comisionMonto = Number(
+    calcularMontoDescuento(montoFinal, comisionTipo, Number(watch('comision_valor')) || 0).toFixed(2)
+  )
+  const montoNeto = Number((montoFinal - comisionMonto).toFixed(2))
 
   // Asignar cliente_id al encontrar el cliente por cédula
   useEffect(() => {
     setValue('cliente_id', clienteEncontrado?.id ?? 0)
   }, [clienteEncontrado?.id, setValue])
 
-  // Sincronizar los campos calculados con el formulario para que pasen validación
+  // Sincronizar los campos calculados con el formulario para que pasen
+  // validación. precio_base se excluye en modo abierto: ahí lo controla el
+  // propio input y sobrescribirlo borraría lo que el usuario escribe.
   useEffect(() => {
-    setValue('precio_base', precioBase)
+    if (!esPrecioAbierto) setValue('precio_base', precioBase)
     setValue('descuento_monto', Number(descuentoMonto.toFixed(2)))
     setValue('monto', montoFinal)
-  }, [precioBase, descuentoMonto, montoFinal, setValue])
+  }, [esPrecioAbierto, precioBase, descuentoMonto, montoFinal, setValue])
 
-  // Auto-calcular fecha_proximo_pago al cambiar paquete o fecha
+  // Auto-calcular fecha_proximo_pago al cambiar paquete o fecha. Un paquete de
+  // precio abierto se cobra una sola vez: se limpia la fecha en vez de calcularla.
   useEffect(() => {
-    if (paqueteSeleccionado && fechaFacturacion) {
+    if (esPrecioAbierto) {
+      setValue('fecha_proximo_pago', undefined)
+    } else if (paqueteSeleccionado && fechaFacturacion) {
       setValue('fecha_proximo_pago', calcularProximoPago(fechaFacturacion, paqueteSeleccionado, facturasCliente))
     }
     // facturasCliente se representa por facturasClienteKey en las dependencias.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paqueteSeleccionado?.id, fechaFacturacion, facturasClienteKey, setValue])
+  }, [esPrecioAbierto, paqueteSeleccionado?.id, fechaFacturacion, facturasClienteKey, setValue])
 
   // Poblar/limpiar el form cada vez que se abre el diálogo. Depender de `open`
   // asegura que al reabrir para "Nueva factura" no queden datos de la anterior.
@@ -113,24 +129,21 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
       const cliente = clientes.find((c) => c.id === factura.cliente_id)
       setCedulaInput(cliente?.cedula ?? '')
       setCategoriaFiltro(String(factura.paquetes.categoria_id))
-      // El descuento manual es la parte del total que no proviene del paquete.
-      // Se reconstruye como monto fijo a partir de lo guardado.
+      // El descuento guardado ya es un monto absoluto: se reedita como tal.
       const base = parseFloat(factura.precio_base)
-      const deduccionPaq = calcularMontoDescuento(
-        base,
-        factura.paquetes.descuento_tipo,
-        parseFloat(factura.paquetes.descuento_valor)
-      )
       setDescuentoManualTipo('monto')
-      setDescuentoManualValor(Math.max(0, parseFloat(factura.descuento_monto) - deduccionPaq))
+      setDescuentoManualValor(parseFloat(factura.descuento_monto))
       reset({
         cliente_id: factura.cliente_id,
         paquete_id: factura.paquete_id,
         fecha_facturacion: factura.fecha_facturacion.slice(0, 10),
-        fecha_proximo_pago: factura.fecha_proximo_pago.slice(0, 10),
+        fecha_proximo_pago: factura.fecha_proximo_pago?.slice(0, 10),
         precio_base: base,
         descuento_monto: parseFloat(factura.descuento_monto),
         monto: parseFloat(factura.monto),
+        origen: factura.origen ?? '',
+        comision_tipo: factura.comision_tipo,
+        comision_valor: parseFloat(factura.comision_valor),
       })
     } else {
       setCedulaInput('')
@@ -144,6 +157,9 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
         precio_base: 0,
         descuento_monto: 0,
         monto: 0,
+        origen: '',
+        comision_tipo: 'porcentaje',
+        comision_valor: 0,
       })
     }
   }, [factura, clientes, reset, open])
@@ -155,30 +171,31 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      {/* El ancho lleva el prefijo sm: porque la clase base del componente trae
+          sm:max-w-sm, que de otro modo gana en pantallas ≥640px. */}
+      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? FACTURAS_LABELS.editar : FACTURAS_LABELS.agregar}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 mt-2">
-          {/* Búsqueda por cédula */}
-          <div className="space-y-1">
-            <Label>{FACTURAS_LABELS.cedula}</Label>
-            <Input
-              placeholder={FACTURAS_LABELS.cedulaPlaceholder}
-              value={cedulaInput}
-              onChange={(e) => setCedulaInput(e.target.value)}
-            />
-            {cedulaInput && (
-              <p className={`text-xs ${clienteEncontrado ? 'text-green-600' : 'text-red-500'}`}>
-                {clienteEncontrado ? `✓ ${clienteEncontrado.nombre}` : FACTURAS_LABELS.clienteNoEncontrado}
-              </p>
-            )}
-            {errors.cliente_id && <p className="text-xs text-red-500">{errors.cliente_id.message}</p>}
-          </div>
+          {/* Cliente, categoría y paquete en una sola fila */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label>{FACTURAS_LABELS.cedula}</Label>
+              <Input
+                placeholder={FACTURAS_LABELS.cedulaPlaceholder}
+                value={cedulaInput}
+                onChange={(e) => setCedulaInput(e.target.value)}
+              />
+              {cedulaInput && (
+                <p className={`text-xs truncate ${clienteEncontrado ? 'text-green-600' : 'text-red-500'}`}>
+                  {clienteEncontrado ? `✓ ${clienteEncontrado.nombre}` : FACTURAS_LABELS.clienteNoEncontrado}
+                </p>
+              )}
+              {errors.cliente_id && <p className="text-xs text-red-500">{errors.cliente_id.message}</p>}
+            </div>
 
-          {/* Selección de categoría y paquete */}
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>{FACTURAS_LABELS.categoria}</Label>
               <Select value={categoriaFiltro} onValueChange={(v) => { setCategoriaFiltro(v); setValue('paquete_id', 0) }}>
@@ -202,10 +219,15 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
                 onValueChange={(v) => {
                   const id = Number(v)
                   setValue('paquete_id', id)
+                  const p = paquetes.find((x) => x.id === id)
+                  // En un paquete de precio abierto se arranca desde su precio
+                  // de referencia (o vacío si no tiene) para poder ajustarlo.
+                  if (p?.precio_abierto) {
+                    setValue('precio_base', p.precio != null ? parseFloat(p.precio) : 0)
+                  }
                   // Si la categoría no está seleccionada, adoptar la del paquete elegido.
-                  if (categoriaFiltro === 'todos') {
-                    const p = paquetes.find((x) => x.id === id)
-                    if (p) setCategoriaFiltro(String(p.categoria_id))
+                  if (categoriaFiltro === 'todos' && p) {
+                    setCategoriaFiltro(String(p.categoria_id))
                   }
                 }}
               >
@@ -225,8 +247,8 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
             </div>
           </div>
 
-          {/* Fechas y monto */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Fechas y precio base */}
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
               <Label>{FACTURAS_LABELS.fechaFacturacion}</Label>
               <Input type="date" {...register('fecha_facturacion')} />
@@ -235,57 +257,131 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
 
             <div className="space-y-1">
               <Label>{FACTURAS_LABELS.fechaProximoPago}</Label>
-              <Input type="date" {...register('fecha_proximo_pago')} />
+              {esPrecioAbierto ? (
+                <Input value={FACTURAS_LABELS.pagoUnico} readOnly className="bg-gray-50 text-gray-500" />
+              ) : (
+                <Input type="date" {...register('fecha_proximo_pago')} />
+              )}
               {errors.fecha_proximo_pago && <p className="text-xs text-red-500">{errors.fecha_proximo_pago.message}</p>}
             </div>
-          </div>
 
-          {/* Desglose de descuentos */}
-          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>{FACTURAS_LABELS.precioBase}</Label>
-              <Input type="number" value={precioBase.toFixed(2)} readOnly className="bg-gray-50" />
-            </div>
-
-            <div className="space-y-1">
-              <Label>{FACTURAS_LABELS.deduccionPaquete}</Label>
-              <Input value={deduccionPaquete.toFixed(2)} readOnly className="bg-gray-50" />
-            </div>
-          </div>
-
-          {/* Descuento manual adicional (monto fijo o porcentaje) */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>{FACTURAS_LABELS.descuentoTipo}</Label>
-              <Select value={descuentoManualTipo} onValueChange={(v) => setDescuentoManualTipo(v as DescuentoTipo)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="porcentaje">{FACTURAS_LABELS.descuentoTipoPorcentaje}</SelectItem>
-                  <SelectItem value="monto">{FACTURAS_LABELS.descuentoTipoMonto}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <Label>{FACTURAS_LABELS.descuento}</Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={descuentoManualValor}
-                onChange={(e) => setDescuentoManualValor(e.target.value === '' ? 0 : Number(e.target.value))}
-              />
+              {esPrecioAbierto ? (
+                <Input type="number" step="0.01" min="0" {...register('precio_base')} />
+              ) : (
+                <Input type="number" value={precioBase.toFixed(2)} readOnly className="bg-gray-50" />
+              )}
+              {errors.precio_base && <p className="text-xs text-red-500">{errors.precio_base.message}</p>}
             </div>
           </div>
 
-          <div className="space-y-1">
-            <Label>{FACTURAS_LABELS.monto}</Label>
-            <Input type="number" value={montoFinal.toFixed(2)} readOnly className="bg-gray-50 font-medium" />
-            <p className="text-xs text-gray-500">
-              {FACTURAS_LABELS.descuentoTotal}: {descuentoMonto.toFixed(2)}
+          {esPrecioAbierto && (
+            <p className="text-xs text-gray-500 -mt-2">
+              {FACTURAS_LABELS.precioAbiertoAyuda}
+              {precioPaquete > 0 && ` ${FACTURAS_LABELS.precioReferencia}: ${precioPaquete.toFixed(2)}`}
+              {` ${FACTURAS_LABELS.pagoUnicoAyuda}`}
             </p>
+          )}
+
+          {/* Descuento adicional al cliente y comisión del canal, lado a lado:
+              el primero baja el total del cliente, la segunda solo el neto. */}
+          <div className="grid grid-cols-2 gap-3 items-start">
+            <fieldset className="rounded-md border border-gray-200 p-3 space-y-2">
+              <legend className="px-1 text-xs font-medium text-gray-600">{FACTURAS_LABELS.descuento}</legend>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">{FACTURAS_LABELS.descuentoTipo}</Label>
+                  <Select value={descuentoManualTipo} onValueChange={(v) => setDescuentoManualTipo(v as DescuentoTipo)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="porcentaje">{FACTURAS_LABELS.descuentoTipoPorcentaje}</SelectItem>
+                      <SelectItem value="monto">{FACTURAS_LABELS.descuentoTipoMonto}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">{FACTURAS_LABELS.comisionValor}</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max={descuentoManualTipo === 'porcentaje' ? 100 : undefined}
+                    value={descuentoManualValor}
+                    onChange={(e) => setDescuentoManualValor(e.target.value === '' ? 0 : Number(e.target.value))}
+                  />
+                </div>
+              </div>
+            </fieldset>
+
+            <fieldset className="rounded-md border border-gray-200 p-3 space-y-2">
+              <legend className="px-1 text-xs font-medium text-gray-600">{FACTURAS_LABELS.comision}</legend>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">{FACTURAS_LABELS.comisionTipo}</Label>
+                  <Select
+                    value={comisionTipo}
+                    onValueChange={(v) => setValue('comision_tipo', v as DescuentoTipo)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="porcentaje">{FACTURAS_LABELS.descuentoTipoPorcentaje}</SelectItem>
+                      <SelectItem value="monto">{FACTURAS_LABELS.descuentoTipoMonto}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">{FACTURAS_LABELS.comisionValor}</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max={comisionTipo === 'porcentaje' ? 100 : undefined}
+                    {...register('comision_valor')}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-gray-500">{FACTURAS_LABELS.origen}</Label>
+                <Input placeholder={FACTURAS_LABELS.origenPlaceholder} {...register('origen')} />
+              </div>
+            </fieldset>
+          </div>
+          {errors.comision_valor && <p className="text-xs text-red-500 -mt-2">{errors.comision_valor.message}</p>}
+
+          {/* Desglose: reemplaza los campos de solo lectura que antes ocupaban
+              una fila cada uno. Las líneas en cero se omiten. */}
+          <div className="rounded-md bg-gray-50 px-3 py-2 text-sm space-y-1">
+            <div className="flex justify-between text-gray-600">
+              <span>{FACTURAS_LABELS.precioBase}</span>
+              <span>{precioBase.toFixed(2)}</span>
+            </div>
+            {descuentoMonto > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span>{FACTURAS_LABELS.descuento}</span>
+                <span>−{descuentoMonto.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between border-t pt-1 font-medium text-gray-900">
+              <span>{FACTURAS_LABELS.totalCliente}</span>
+              <span>{montoFinal.toFixed(2)}</span>
+            </div>
+            {comisionMonto > 0 && (
+              <>
+                <div className="flex justify-between text-gray-600">
+                  <span>{FACTURAS_LABELS.comision}</span>
+                  <span>−{comisionMonto.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between border-t pt-1 font-medium text-gray-900">
+                  <span>{FACTURAS_LABELS.montoNeto}</span>
+                  <span>{montoNeto.toFixed(2)}</span>
+                </div>
+              </>
+            )}
             {errors.monto && <p className="text-xs text-red-500">{errors.monto.message}</p>}
           </div>
 

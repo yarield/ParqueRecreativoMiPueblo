@@ -16,7 +16,6 @@ export default function PaquetesTable({ paquetes, onEdit, onDelete, onToggleEsta
             <th className="px-4 py-3 text-left">{PAQUETES_LABELS.nombre}</th>
             <th className="px-4 py-3 text-left">{PAQUETES_LABELS.categoria}</th>
             <th className="px-4 py-3 text-right">{PAQUETES_LABELS.precio}</th>
-            <th className="px-4 py-3 text-right">{PAQUETES_LABELS.deduccion}</th>
             <th className="px-4 py-3 text-right">{PAQUETES_LABELS.duracion}</th>
             <th className="px-4 py-3 text-left">{PAQUETES_LABELS.estado}</th>
             <th className="px-4 py-3 text-right">{PAQUETES_LABELS.acciones}</th>
@@ -27,13 +26,15 @@ export default function PaquetesTable({ paquetes, onEdit, onDelete, onToggleEsta
             <tr key={paquete.id} className="hover:bg-gray-50">
               <td className="px-4 py-3 font-medium">{paquete.nombre}</td>
               <td className="px-4 py-3 text-gray-600">{paquete.categorias.nombre}</td>
-              <td className="px-4 py-3 text-right">{parseFloat(paquete.precio).toFixed(2)}</td>
-              <td className="px-4 py-3 text-right text-gray-600">
-                {parseFloat(paquete.descuento_valor) > 0
-                  ? paquete.descuento_tipo === 'porcentaje'
-                    ? `${parseFloat(paquete.descuento_valor).toFixed(2)}%`
-                    : parseFloat(paquete.descuento_valor).toFixed(2)
-                  : PAQUETES_LABELS.sinDescuento}
+              <td className="px-4 py-3 text-right">
+                <span className="inline-flex items-center justify-end gap-1.5">
+                  {paquete.precio != null ? parseFloat(paquete.precio).toFixed(2) : PAQUETES_LABELS.sinPrecio}
+                  {paquete.precio_abierto && (
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                      {PAQUETES_LABELS.precioAbiertoBadge}
+                    </span>
+                  )}
+                </span>
               </td>
               <td className="px-4 py-3 text-right text-gray-600">{paquete.duracion_dias}d</td>
               <td className="px-4 py-3">

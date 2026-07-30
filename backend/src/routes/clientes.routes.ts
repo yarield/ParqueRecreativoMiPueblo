@@ -49,6 +49,10 @@ router.get('/en-mora', authMiddleware, async (_req, res, next) => {
       where: { estado: 'activo' },
       include: {
         facturas: {
+          // Las facturas de pago único (sin próximo pago) quedan fuera: no
+          // generan mora y, al ordenar DESC, Postgres pondría sus NULL primero
+          // y tomaríamos una factura sin fecha como la más reciente.
+          where: { fecha_proximo_pago: { not: null } },
           orderBy: { fecha_proximo_pago: 'desc' },
           take: 1,
           include: { paquetes: { select: { nombre: true } } },
@@ -57,11 +61,11 @@ router.get('/en-mora', authMiddleware, async (_req, res, next) => {
     })
 
     const enMora = clientesActivos
-      .filter((c) => c.facturas.length > 0 && c.facturas[0].fecha_proximo_pago < hoy)
+      .filter((c) => c.facturas.length > 0 && c.facturas[0].fecha_proximo_pago! < hoy)
       .map((c) => {
         const ultimaFactura = c.facturas[0]
         const diasAtraso = Math.floor(
-          (hoy.getTime() - ultimaFactura.fecha_proximo_pago.getTime()) / (1000 * 60 * 60 * 24)
+          (hoy.getTime() - ultimaFactura.fecha_proximo_pago!.getTime()) / (1000 * 60 * 60 * 24)
         )
         return {
           id: c.id,
