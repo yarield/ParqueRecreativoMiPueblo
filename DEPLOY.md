@@ -205,9 +205,13 @@ pm2 restart natacion-api   # reiniciar backend
 
 # Actualizar la app tras cambios en el repo (ver la sección 8 antes de correrlo):
 cd /opt/natacion && git pull
-cd backend  && npm ci && npx prisma migrate deploy && npm run build && pm2 restart natacion-api
+cd backend  && npm ci && npx prisma migrate deploy && npx prisma generate && npm run build && pm2 restart natacion-api
 cd ../frontend && npm ci && npm run build && sudo cp -r dist/* /var/www/natacion/
 ```
+
+> `npx prisma generate` no es opcional: el cliente de Prisma se genera en
+> `backend/src/generated/prisma`, que **no está versionado**. Sin ese paso el
+> servidor compila contra el cliente viejo y falla al leer las columnas nuevas.
 
 ---
 
@@ -248,9 +252,18 @@ cd backend && npx prisma migrate status
 # 4. Aplicarlas
 npx prisma migrate deploy
 
-# 5. Reconstruir y reiniciar
-npm ci && npm run build && pm2 restart natacion-api
+# 5. Regenerar el cliente de Prisma (NO se salta: no viene en el repo)
+npm ci
+npx prisma generate
+
+# 6. Reconstruir y reiniciar
+npm run build && pm2 restart natacion-api
 cd ../frontend && npm ci && npm run build && sudo cp -r dist/* /var/www/natacion/
+
+# 7. Comprobar que quedó sano
+npx prisma migrate status          # debe decir "Database schema is up to date!"
+pm2 logs natacion-api --lines 20   # sin errores al arrancar
+curl -s localhost:3000/api/paquetes | head -c 200
 ```
 
 Si algo sale mal, se restaura el respaldo del paso 1:
