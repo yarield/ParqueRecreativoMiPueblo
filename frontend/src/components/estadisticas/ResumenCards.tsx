@@ -15,8 +15,13 @@ export default function ResumenCards({ resumen }: ResumenCardsProps) {
       />
       <StatCard titulo={ESTADISTICAS_LABELS.totalFacturas} valor={resumen.totalFacturas} />
       <StatCard
+        titulo={ESTADISTICAS_LABELS.totalFacturado}
+        valor={`$${resumen.totalFacturado.toFixed(2)}`}
+      />
+      <StatCard
         titulo={ESTADISTICAS_LABELS.totalGanancias}
         valor={`$${resumen.totalGanancias.toFixed(2)}`}
+        subtitulo={ESTADISTICAS_LABELS.netoAyuda}
       />
     </div>
   )

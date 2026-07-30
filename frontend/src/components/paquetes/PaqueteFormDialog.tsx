@@ -19,8 +19,13 @@ export default function PaqueteFormDialog({ open, onClose, onSubmit, paquete, ca
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<PaqueteFormData>({
     resolver: zodResolver(paqueteSchema) as Resolver<PaqueteFormData>,
-    defaultValues: { estado: 'activo', duracion_unidad: 'dias', descuento_tipo: 'porcentaje', descuento_valor: 0 },
+    defaultValues: { estado: 'activo', duracion_unidad: 'dias', precio: null, precio_abierto: false },
   })
+
+  const precioAbierto = watch('precio_abierto')
+  // Cambiar el modo de precio no reescribe el histórico: las facturas ya
+  // emitidas guardan su propio precio_base. Se avisa igual para evitar dudas.
+  const modoCambiado = !!paquete && precioAbierto !== paquete.precio_abierto
 
   useEffect(() => {
     if (!open) return
@@ -28,16 +33,15 @@ export default function PaqueteFormDialog({ open, onClose, onSubmit, paquete, ca
     if (paquete) {
       reset({
         nombre: paquete.nombre,
-        precio: parseFloat(paquete.precio),
+        precio: paquete.precio != null ? parseFloat(paquete.precio) : null,
+        precio_abierto: paquete.precio_abierto,
         categoria_id: paquete.categoria_id,
         duracion_dias: paquete.duracion_dias,
         duracion_unidad: paquete.duracion_unidad,
-        descuento_tipo: paquete.descuento_tipo,
-        descuento_valor: parseFloat(paquete.descuento_valor),
         estado: paquete.estado,
       })
     } else {
-      reset({ estado: 'activo', categoria_id: 0, duracion_unidad: 'dias', descuento_tipo: 'porcentaje', descuento_valor: 0 })
+      reset({ estado: 'activo', categoria_id: 0, duracion_unidad: 'dias', precio: null, precio_abierto: false })
     }
   }, [paquete, reset, open])
 
@@ -53,7 +57,8 @@ export default function PaqueteFormDialog({ open, onClose, onSubmit, paquete, ca
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg">
+      {/* sm: es necesario: la clase base del componente trae sm:max-w-sm. */}
+      <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? PAQUETES_LABELS.editar : PAQUETES_LABELS.agregar}</DialogTitle>
         </DialogHeader>
@@ -71,10 +76,37 @@ export default function PaqueteFormDialog({ open, onClose, onSubmit, paquete, ca
             {errors.nombre && <p className="text-xs text-red-500">{errors.nombre.message}</p>}
           </div>
 
+          <div className="space-y-1">
+            <Label>{PAQUETES_LABELS.modoPrecio}</Label>
+            <Select
+              value={precioAbierto ? 'abierto' : 'fijo'}
+              onValueChange={(v) => setValue('precio_abierto', v === 'abierto')}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fijo">{PAQUETES_LABELS.precioFijo}</SelectItem>
+                <SelectItem value="abierto">{PAQUETES_LABELS.precioAbierto}</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-500">
+              {precioAbierto ? PAQUETES_LABELS.precioAbiertoAyuda : PAQUETES_LABELS.precioFijoAyuda}
+            </p>
+            {modoCambiado && (
+              <p className="text-xs text-amber-600">{PAQUETES_MESSAGES.cambioModoPrecio}</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label>{PAQUETES_LABELS.precio}</Label>
-              <Input type="number" step="0.01" min="0" {...register('precio')} />
+              <Label>{precioAbierto ? PAQUETES_LABELS.precioReferencia : PAQUETES_LABELS.precio}</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                {...register('precio', { setValueAs: (v) => (v === '' || v === null ? null : Number(v)) })}
+              />
               {errors.precio && <p className="text-xs text-red-500">{errors.precio.message}</p>}
             </div>
 
@@ -117,31 +149,6 @@ export default function PaqueteFormDialog({ open, onClose, onSubmit, paquete, ca
               </Select>
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label>{PAQUETES_LABELS.descuentoTipo}</Label>
-              <Select
-                value={watch('descuento_tipo')}
-                onValueChange={(v) => setValue('descuento_tipo', v as 'porcentaje' | 'monto')}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="porcentaje">{PAQUETES_LABELS.descuentoTipoPorcentaje}</SelectItem>
-                  <SelectItem value="monto">{PAQUETES_LABELS.descuentoTipoMonto}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <Label>{PAQUETES_LABELS.descuentoValor}</Label>
-              <Input type="number" step="0.01" min="0" {...register('descuento_valor')} />
-              {errors.descuento_valor && <p className="text-xs text-red-500">{errors.descuento_valor.message}</p>}
-            </div>
-          </div>
-          <p className="text-xs text-gray-500 -mt-2">{PAQUETES_LABELS.descuentoAyuda}</p>
 
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={onClose}>

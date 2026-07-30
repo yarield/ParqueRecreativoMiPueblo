@@ -11,7 +11,7 @@ router.get('/resumen', authMiddleware, async (_req, res, next) => {
       prisma.clientes.count(),
       prisma.clientes.count({ where: { estado: 'activo' } }),
       prisma.facturas.count(),
-      prisma.facturas.aggregate({ _sum: { monto: true } }),
+      prisma.facturas.aggregate({ _sum: { monto: true, monto_neto: true } }),
     ])
 
     const clientesInactivos = totalClientes - clientesActivos
@@ -25,7 +25,9 @@ router.get('/resumen', authMiddleware, async (_req, res, next) => {
       clientesInactivos,
       tasaCancelacion,
       totalFacturas,
-      totalGanancias: Math.round(Number(ganancias._sum.monto ?? 0) * 100) / 100,
+      // Lo cobrado al cliente y lo que queda tras las comisiones de los canales.
+      totalFacturado: Math.round(Number(ganancias._sum.monto ?? 0) * 100) / 100,
+      totalGanancias: Math.round(Number(ganancias._sum.monto_neto ?? 0) * 100) / 100,
     })
   } catch (err) {
     next(err)
@@ -87,20 +89,25 @@ router.get('/ganancias', authMiddleware, async (req, res, next) => {
 
     const facturas = await prisma.facturas.findMany({
       where,
-      select: { fecha_facturacion: true, monto: true },
+      select: { fecha_facturacion: true, monto: true, monto_neto: true },
       orderBy: { fecha_facturacion: 'asc' },
     })
 
-    const porMes: Record<string, number> = {}
+    // `total` es el neto (lo que queda tras comisiones) y `facturado` lo cobrado
+    // al cliente. En facturas sin comisión ambos coinciden.
+    const porMes: Record<string, { total: number; facturado: number }> = {}
     for (const f of facturas) {
       const mes = f.fecha_facturacion.toISOString().slice(0, 7)
-      porMes[mes] = (porMes[mes] ?? 0) + Number(f.monto)
+      if (!porMes[mes]) porMes[mes] = { total: 0, facturado: 0 }
+      porMes[mes].total += Number(f.monto_neto)
+      porMes[mes].facturado += Number(f.monto)
     }
 
     res.json(
-      Object.entries(porMes).map(([mes, total]) => ({
+      Object.entries(porMes).map(([mes, v]) => ({
         mes,
-        total: Math.round(total * 100) / 100,
+        total: Math.round(v.total * 100) / 100,
+        facturado: Math.round(v.facturado * 100) / 100,
       }))
     )
   } catch (err) {

@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge'
 import { useCliente } from '@/hooks/useClientes'
 import { CLIENTES_LABELS } from '@/constants/clientes.constants'
+import { FACTURAS_LABELS } from '@/constants/facturas.constants'
 import { formatearFecha } from '@/lib/date'
 import type { ClienteHistorialDialogProps } from './clientes.types'
 
@@ -38,7 +39,8 @@ export default function ClienteHistorialDialog({ open, onClose, cliente }: Clien
               </thead>
               <tbody className="divide-y">
                 {data.facturas.map((f) => {
-                  const vencido = new Date(f.fecha_proximo_pago) < hoy
+                  const vencido =
+                    f.fecha_proximo_pago !== null && new Date(f.fecha_proximo_pago) < hoy
                   return (
                     <tr key={f.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium">{f.paquetes.nombre}</td>
@@ -48,12 +50,18 @@ export default function ClienteHistorialDialog({ open, onClose, cliente }: Clien
                         {formatearFecha(f.fecha_facturacion)}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {formatearFecha(f.fecha_proximo_pago)}
+                        {f.fecha_proximo_pago
+                          ? formatearFecha(f.fecha_proximo_pago)
+                          : FACTURAS_LABELS.pagoUnico}
                       </td>
                       <td className="px-4 py-3">
-                        <Badge variant={vencido ? 'destructive' : 'default'}>
-                          {vencido ? 'Vencido' : 'Al día'}
-                        </Badge>
+                        {f.fecha_proximo_pago === null ? (
+                          <Badge variant="secondary">{FACTURAS_LABELS.pagoUnico}</Badge>
+                        ) : (
+                          <Badge variant={vencido ? 'destructive' : 'default'}>
+                            {vencido ? 'Vencido' : 'Al día'}
+                          </Badge>
+                        )}
                       </td>
                     </tr>
                   )

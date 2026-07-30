@@ -203,8 +203,82 @@ pm2 status                 # ver estado del backend
 pm2 logs natacion-api      # ver logs del backend
 pm2 restart natacion-api   # reiniciar backend
 
-# Actualizar la app tras cambios en el repo:
+# Actualizar la app tras cambios en el repo (ver la sección 8 antes de correrlo):
 cd /opt/natacion && git pull
-cd backend  && npm ci && npx prisma migrate deploy && npm run build && pm2 restart natacion-api
+cd backend  && npm ci && npx prisma migrate deploy && npx prisma generate && npm run build && pm2 restart natacion-api
 cd ../frontend && npm ci && npm run build && sudo cp -r dist/* /var/www/natacion/
 ```
+
+> `npx prisma generate` no es opcional: el cliente de Prisma se genera en
+> `backend/src/generated/prisma`, que **no está versionado**. Sin ese paso el
+> servidor compila contra el cliente viejo y falla al leer las columnas nuevas.
+
+---
+
+## 8. Actualizar el servidor sin perder datos
+
+Las migraciones de este proyecto **cambian la estructura de las tablas, no borran filas**.
+Ninguna contiene `DROP TABLE`, `DELETE` ni `TRUNCATE`: solo agregan o modifican columnas.
+
+### El único comando correcto en el servidor
+
+```bash
+npx prisma migrate deploy
+```
+
+`migrate deploy` aplica únicamente las migraciones pendientes, en orden, y nunca
+recrea la base. Es el comando pensado para producción.
+
+### ⚠️ Comandos que SÍ destruyen los datos — no usarlos nunca en el servidor
+
+| Comando | Qué hace |
+|---|---|
+| `prisma migrate reset` | **Borra la base entera** y la vuelve a crear desde cero |
+| `prisma migrate dev` | Es para desarrollo; si detecta una diferencia puede ofrecer resetear |
+| `prisma db push --force-reset` | Descarta los datos para forzar el esquema |
+
+### Procedimiento recomendado
+
+```bash
+# 1. Respaldo ANTES de tocar nada (imprescindible)
+pg_dump -U natacion_user natacion > /opt/backups/antes_de_actualizar_$(date +%F_%H%M).sql
+
+# 2. Traer los cambios
+cd /opt/natacion && git pull
+
+# 3. Ver qué migraciones están pendientes, sin aplicar nada todavía
+cd backend && npx prisma migrate status
+
+# 4. Aplicarlas
+npx prisma migrate deploy
+
+# 5. Regenerar el cliente de Prisma (NO se salta: no viene en el repo)
+npm ci
+npx prisma generate
+
+# 6. Reconstruir y reiniciar
+npm run build && pm2 restart natacion-api
+cd ../frontend && npm ci && npm run build && sudo cp -r dist/* /var/www/natacion/
+
+# 7. Comprobar que quedó sano
+npx prisma migrate status          # debe decir "Database schema is up to date!"
+pm2 logs natacion-api --lines 20   # sin errores al arrancar
+curl -s localhost:3000/api/paquetes | head -c 200
+```
+
+Si algo sale mal, se restaura el respaldo del paso 1:
+
+```bash
+psql -U natacion_user -d natacion < /opt/backups/antes_de_actualizar_<fecha>.sql
+```
+
+### Qué hacen las migraciones de esta versión
+
+| Migración | Efecto sobre los datos |
+|---|---|
+| `precio_abierto_y_comision` | Agrega columnas nuevas. Rellena `monto_neto = monto` en las facturas existentes, para que su neto quede correcto. **No pierde nada.** |
+| `quitar_deduccion_paquetes` | Elimina `descuento_tipo` y `descuento_valor` de `paquetes`. **Se pierde el contenido de esas dos columnas** (la deducción por paquete ya no existe como funcionalidad). Las facturas ya emitidas no se tocan: su descuento quedó congelado en `facturas.descuento_monto`. |
+| `pago_unico_precio_abierto` | Hace opcional `facturas.fecha_proximo_pago`. Las facturas existentes conservan su fecha. |
+
+Estas migraciones se probaron sobre una base vacía y el esquema resultante quedó
+idéntico al de una base ya en uso.

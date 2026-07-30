@@ -54,7 +54,7 @@ export default function FacturasPage() {
         filtroPaquete === 'todos' || String(f.paquete_id) === filtroPaquete
 
       const coincideFecha =
-        !filtroFecha || f.fecha_proximo_pago.slice(0, 10) === filtroFecha
+        !filtroFecha || f.fecha_proximo_pago?.slice(0, 10) === filtroFecha
 
       return coincideCliente && coincideCategoria && coincidePaquete && coincideFecha
     })

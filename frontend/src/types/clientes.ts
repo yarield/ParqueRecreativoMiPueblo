@@ -11,7 +11,7 @@ export interface Cliente {
 export interface FacturaDeCliente {
   id: number
   fecha_facturacion: string
-  fecha_proximo_pago: string
+  fecha_proximo_pago: string | null
   monto: string
   paquetes: {
     nombre: string
