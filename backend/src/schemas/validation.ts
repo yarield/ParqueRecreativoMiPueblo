@@ -18,7 +18,10 @@ export const categoriaUpdateSchema = categoriaCreateSchema.partial()
 // ---------- Clientes ----------
 export const clienteCreateSchema = z.object({
   nombre: z.string().trim().min(1, 'El nombre es requerido').max(150),
-  cedula: z.string().trim().min(1, 'La cédula es requerida').max(30),
+  // La cédula es opcional: hay clientes menores de edad que aún no la tienen.
+  // Un valor vacío se guarda como NULL, porque el índice único solo admitiría
+  // una fila con la cadena vacía y bloquearía al segundo cliente sin cédula.
+  cedula: z.string().trim().max(30).nullish().transform((v) => v || null),
   telefono: z.string().max(30).nullish(),
   fecha_inicio: fechaISO,
   observaciones: z.string().max(2000).nullish(),

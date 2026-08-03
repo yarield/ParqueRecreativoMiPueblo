@@ -30,7 +30,7 @@ export default function FacturasTable({ facturas, onEdit, onDelete }: FacturasTa
           {facturas.map((f) => (
             <tr key={f.id} className="hover:bg-gray-50">
               <td className="px-4 py-3 font-medium">{f.clientes.nombre}</td>
-              <td className="px-4 py-3 text-gray-600">{f.clientes.cedula}</td>
+              <td className="px-4 py-3 text-gray-600">{f.clientes.cedula ?? '—'}</td>
               <td className="px-4 py-3 text-gray-600">{f.paquetes.nombre}</td>
               <td className="px-4 py-3 text-gray-600">{f.paquetes.categorias.nombre}</td>
               <td className="px-4 py-3 text-right text-gray-600">

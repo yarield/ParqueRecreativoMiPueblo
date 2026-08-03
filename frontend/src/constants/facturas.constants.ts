@@ -5,8 +5,9 @@ export const FACTURAS_LABELS = {
   eliminar: 'Eliminar factura',
   cliente: 'Cliente',
   cedula: 'Cédula del cliente',
-  cedulaPlaceholder: 'X-XXXX-XXXX',
+  clienteBusquedaPlaceholder: 'Nombre o cédula...',
   clienteNoEncontrado: 'Cliente no encontrado',
+  sinCedula: 'Sin cédula',
   paquete: 'Paquete',
   categoria: 'Categoría',
   precioBase: 'Precio base',
@@ -44,6 +45,9 @@ export const FACTURAS_LABELS = {
   montoAutoCalculado: 'Auto-calculado por paquete, editable',
   fechaAutoCalculada: 'Auto-calculada por duración, editable',
 } as const
+
+// Cuántos clientes se listan al buscar en el formulario de factura.
+export const FACTURAS_MAX_SUGERENCIAS_CLIENTE = 8
 
 export const FACTURAS_MESSAGES = {
   confirmarEliminar: '¿Estás seguro de que deseas eliminar esta factura de',

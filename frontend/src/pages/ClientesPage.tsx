@@ -20,6 +20,7 @@ export default function ClientesPage() {
   const [busquedaInput, setBusquedaInput] = useState('')
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'activo' | 'inactivo'>('todos')
+  const [filtroCedula, setFiltroCedula] = useState<'todas' | 'con' | 'sin'>('todas')
   const [filtroFechaDesde, setFiltroFechaDesde] = useState('')
   const [filtroFechaHasta, setFiltroFechaHasta] = useState('')
 
@@ -30,19 +31,23 @@ export default function ClientesPage() {
 
   const clientesFiltrados = useMemo(() => {
     return clientes.filter((c) => {
+      const termino = busqueda.toLowerCase()
       const coincideBusqueda =
-        c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-        c.cedula.toLowerCase().includes(busqueda.toLowerCase())
+        c.nombre.toLowerCase().includes(termino) ||
+        (c.cedula?.toLowerCase().includes(termino) ?? false)
 
       const coincideEstado = filtroEstado === 'todos' || c.estado === filtroEstado
+
+      const coincideCedula =
+        filtroCedula === 'todas' || (filtroCedula === 'con' ? !!c.cedula : !c.cedula)
 
       const fechaInicio = c.fecha_inicio.slice(0, 10)
       const coincideFechaDesde = !filtroFechaDesde || fechaInicio >= filtroFechaDesde
       const coincideFechaHasta = !filtroFechaHasta || fechaInicio <= filtroFechaHasta
 
-      return coincideBusqueda && coincideEstado && coincideFechaDesde && coincideFechaHasta
+      return coincideBusqueda && coincideEstado && coincideCedula && coincideFechaDesde && coincideFechaHasta
     })
-  }, [clientes, busqueda, filtroEstado, filtroFechaDesde, filtroFechaHasta])
+  }, [clientes, busqueda, filtroEstado, filtroCedula, filtroFechaDesde, filtroFechaHasta])
 
   function handleBuscar() {
     setBusqueda(busquedaInput)
@@ -52,6 +57,7 @@ export default function ClientesPage() {
     setBusquedaInput('')
     setBusqueda('')
     setFiltroEstado('todos')
+    setFiltroCedula('todas')
     setFiltroFechaDesde('')
     setFiltroFechaHasta('')
   }
@@ -101,6 +107,16 @@ export default function ClientesPage() {
             <SelectItem value="todos">{CLIENTES_LABELS.todos}</SelectItem>
             <SelectItem value="activo">{CLIENTES_LABELS.activo}</SelectItem>
             <SelectItem value="inactivo">{CLIENTES_LABELS.inactivo}</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filtroCedula} onValueChange={(v) => setFiltroCedula(v as typeof filtroCedula)}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">{CLIENTES_LABELS.cedulaTodas}</SelectItem>
+            <SelectItem value="con">{CLIENTES_LABELS.conCedula}</SelectItem>
+            <SelectItem value="sin">{CLIENTES_LABELS.sinCedula}</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2">

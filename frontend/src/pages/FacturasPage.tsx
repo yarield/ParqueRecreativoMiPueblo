@@ -44,7 +44,7 @@ export default function FacturasPage() {
       const coincideCliente =
         !busquedaCliente ||
         f.clientes.nombre.toLowerCase().includes(busquedaCliente.toLowerCase()) ||
-        f.clientes.cedula.toLowerCase().includes(busquedaCliente.toLowerCase())
+        (f.clientes.cedula?.toLowerCase().includes(busquedaCliente.toLowerCase()) ?? false)
 
       const coincideCategoria =
         filtroCategoria === 'todos' ||

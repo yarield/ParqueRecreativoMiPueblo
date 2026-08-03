@@ -8,16 +8,27 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { facturaSchema } from '@/schemas/facturas.schema'
-import { FACTURAS_LABELS, FACTURAS_MESSAGES } from '@/constants/facturas.constants'
+import { FACTURAS_LABELS, FACTURAS_MESSAGES, FACTURAS_MAX_SUGERENCIAS_CLIENTE } from '@/constants/facturas.constants'
 import { calcularProximoPago } from '@/lib/date'
 import { calcularMontoDescuento } from '@/lib/descuentos'
 import type { DescuentoTipo } from '@/lib/descuentos'
 import type { FacturaFormData } from '@/schemas/facturas.schema'
 import type { FacturaFormDialogProps } from './facturas.types'
 
+// Normaliza para comparar: minúsculas, sin tildes y sin separadores. Así
+// "S-2011-1222", "s20111222" o un pegado con espacios coinciden, y "juan perez"
+// encuentra a "Juan Pérez".
+const normalizar = (t: string) =>
+  t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '')
+
+// Texto con el que se muestra un cliente ya elegido en el campo de búsqueda.
+const etiquetaCliente = (c: { nombre: string; cedula: string | null }) =>
+  c.cedula ? `${c.nombre} · ${c.cedula}` : c.nombre
+
 export default function FacturaFormDialog({ open, onClose, onSubmit, factura, clientes, paquetes, categorias, facturas }: FacturaFormDialogProps) {
   const isEditing = !!factura
-  const [cedulaInput, setCedulaInput] = useState('')
+  const [clienteBusqueda, setClienteBusqueda] = useState('')
+  const [mostrarSugerencias, setMostrarSugerencias] = useState(false)
   const [categoriaFiltro, setCategoriaFiltro] = useState('todos')
   const [descuentoManualTipo, setDescuentoManualTipo] = useState<DescuentoTipo>('porcentaje')
   const [descuentoManualValor, setDescuentoManualValor] = useState(0)
@@ -27,12 +38,32 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
     defaultValues: { fecha_facturacion: new Date().toISOString().slice(0, 10) },
   })
 
-  // Normaliza cédulas para comparar: minúsculas y sin separadores ni caracteres
-  // invisibles. Así "S-2011-1222", "s20111222" o un pegado con espacios coinciden.
-  const normalizarCedula = (c: string) => c.toLowerCase().replace(/[^a-z0-9]/g, '')
-  const clienteEncontrado = cedulaInput.trim()
-    ? clientes.find((c) => normalizarCedula(c.cedula) === normalizarCedula(cedulaInput))
+  // El cliente se busca por nombre o cédula: los menores de edad se registran
+  // sin cédula y no habría forma de facturarles si solo se buscara por ella.
+  const terminoCliente = normalizar(clienteBusqueda)
+  const clientesCoincidentes = terminoCliente
+    ? clientes
+        .filter(
+          (c) =>
+            normalizar(c.nombre).includes(terminoCliente) ||
+            (c.cedula ? normalizar(c.cedula).includes(terminoCliente) : false)
+        )
+        .slice(0, FACTURAS_MAX_SUGERENCIAS_CLIENTE)
+    : []
+
+  // Se conserva el atajo de escribir la cédula completa: si coincide exacta con
+  // una, el cliente queda seleccionado sin tener que elegir de la lista.
+  const coincidenciaExactaCedula = terminoCliente
+    ? clientes.find((c) => c.cedula && normalizar(c.cedula) === terminoCliente)
     : undefined
+
+  const clienteSeleccionado = clientes.find((c) => c.id === Number(watch('cliente_id')))
+
+  function seleccionarCliente(c: { id: number; nombre: string; cedula: string | null }) {
+    setValue('cliente_id', c.id)
+    setClienteBusqueda(etiquetaCliente(c))
+    setMostrarSugerencias(false)
+  }
 
   const paqueteId = watch('paquete_id')
   const fechaFacturacion = watch('fecha_facturacion')
@@ -55,11 +86,11 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
   // independiente: un cliente puede tener varios a la vez con ciclos distintos.
   // Sirve para anclar el próximo pago a su primera factura de ese paquete y
   // detectar reingresos tras una pausa. Se excluye la factura que se edita.
-  const facturasCliente = clienteEncontrado && paqueteSeleccionado
+  const facturasCliente = clienteSeleccionado && paqueteSeleccionado
     ? facturas
         .filter(
           (f) =>
-            f.cliente_id === clienteEncontrado.id &&
+            f.cliente_id === clienteSeleccionado.id &&
             f.paquete_id === paqueteSeleccionado.id &&
             f.id !== factura?.id &&
             // Las de pago único no forman ciclo, así que no anclan nada.
@@ -95,10 +126,12 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
   )
   const montoNeto = Number((montoFinal - comisionMonto).toFixed(2))
 
-  // Asignar cliente_id al encontrar el cliente por cédula
+  // Escribir la cédula completa selecciona al cliente directamente. Elegirlo de
+  // la lista de sugerencias es el otro camino y lo hace seleccionarCliente().
+  const idExactoPorCedula = coincidenciaExactaCedula?.id
   useEffect(() => {
-    setValue('cliente_id', clienteEncontrado?.id ?? 0)
-  }, [clienteEncontrado?.id, setValue])
+    if (idExactoPorCedula) setValue('cliente_id', idExactoPorCedula)
+  }, [idExactoPorCedula, setValue])
 
   // Sincronizar los campos calculados con el formulario para que pasen
   // validación. precio_base se excluye en modo abierto: ahí lo controla el
@@ -127,7 +160,8 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
     if (!open) return
     if (factura) {
       const cliente = clientes.find((c) => c.id === factura.cliente_id)
-      setCedulaInput(cliente?.cedula ?? '')
+      setClienteBusqueda(cliente ? etiquetaCliente(cliente) : '')
+      setMostrarSugerencias(false)
       setCategoriaFiltro(String(factura.paquetes.categoria_id))
       // El descuento guardado ya es un monto absoluto: se reedita como tal.
       const base = parseFloat(factura.precio_base)
@@ -146,7 +180,8 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
         comision_valor: parseFloat(factura.comision_valor),
       })
     } else {
-      setCedulaInput('')
+      setClienteBusqueda('')
+      setMostrarSugerencias(false)
       setCategoriaFiltro('todos')
       setDescuentoManualTipo('porcentaje')
       setDescuentoManualValor(0)
@@ -181,19 +216,50 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
         <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4 mt-2">
           {/* Cliente, categoría y paquete en una sola fila */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <Label>{FACTURAS_LABELS.cedula}</Label>
+            <div className="space-y-1 relative">
+              <Label>{FACTURAS_LABELS.cliente}</Label>
               <Input
-                placeholder={FACTURAS_LABELS.cedulaPlaceholder}
-                value={cedulaInput}
-                onChange={(e) => setCedulaInput(e.target.value)}
+                placeholder={FACTURAS_LABELS.clienteBusquedaPlaceholder}
+                value={clienteBusqueda}
+                onChange={(e) => {
+                  // Al reescribir se suelta el cliente elegido: así no queda una
+                  // factura asignada a alguien que ya no es el del texto.
+                  setValue('cliente_id', 0)
+                  setClienteBusqueda(e.target.value)
+                  setMostrarSugerencias(true)
+                }}
+                onFocus={() => setMostrarSugerencias(true)}
+                onBlur={() => setMostrarSugerencias(false)}
               />
-              {cedulaInput && (
-                <p className={`text-xs truncate ${clienteEncontrado ? 'text-green-600' : 'text-red-500'}`}>
-                  {clienteEncontrado ? `✓ ${clienteEncontrado.nombre}` : FACTURAS_LABELS.clienteNoEncontrado}
+              {clienteBusqueda && (
+                <p className={`text-xs truncate ${clienteSeleccionado ? 'text-green-600' : 'text-red-500'}`}>
+                  {clienteSeleccionado
+                    ? `✓ ${etiquetaCliente(clienteSeleccionado)}`
+                    : FACTURAS_LABELS.clienteNoEncontrado}
                 </p>
               )}
               {errors.cliente_id && <p className="text-xs text-red-500">{errors.cliente_id.message}</p>}
+
+              {mostrarSugerencias && !clienteSeleccionado && clientesCoincidentes.length > 0 && (
+                <ul className="absolute top-full left-0 z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-md border bg-white shadow-md">
+                  {clientesCoincidentes.map((c) => (
+                    <li key={c.id}>
+                      {/* onMouseDown y no onClick: el clic dispara el blur del
+                          input antes que el click y cerraría la lista primero. */}
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left hover:bg-gray-100"
+                        onMouseDown={() => seleccionarCliente(c)}
+                      >
+                        <span className="block truncate text-sm">{c.nombre}</span>
+                        <span className="block truncate text-xs text-gray-500">
+                          {c.cedula ?? FACTURAS_LABELS.sinCedula}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="space-y-1">

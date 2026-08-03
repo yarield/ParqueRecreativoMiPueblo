@@ -3,7 +3,8 @@ import { CLIENTES_LABELS } from '@/constants/clientes.constants'
 
 export const clienteSchema = z.object({
   nombre: z.string().min(1, `${CLIENTES_LABELS.nombre} es requerido`),
-  cedula: z.string().min(1, `${CLIENTES_LABELS.cedula} es requerida`),
+  // Opcional: los menores de edad se registran sin cédula y se completa después.
+  cedula: z.string().optional(),
   telefono: z.string().optional(),
   fecha_inicio: z.string().min(1, `${CLIENTES_LABELS.fechaInicio} es requerida`),
   observaciones: z.string().optional(),

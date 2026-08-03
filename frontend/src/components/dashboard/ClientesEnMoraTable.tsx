@@ -27,7 +27,7 @@ export default function ClientesEnMoraTable({ clientes, onMarcarInactivo }: Clie
           {clientes.map((cliente) => (
             <tr key={cliente.id} className="hover:bg-gray-50">
               <td className="px-4 py-3 font-medium">{cliente.nombre}</td>
-              <td className="px-4 py-3 text-gray-600">{cliente.cedula}</td>
+              <td className="px-4 py-3 text-gray-600">{cliente.cedula ?? '—'}</td>
               <td className="px-4 py-3 text-gray-600">{cliente.telefono ?? '—'}</td>
               <td className="px-4 py-3 text-gray-600">{cliente.paquete_nombre}</td>
               <td className="px-4 py-3 text-gray-600">
