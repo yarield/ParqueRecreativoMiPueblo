@@ -27,7 +27,7 @@ export default function ClienteFormDialog({ open, onClose, onSubmit, cliente }: 
     if (cliente) {
       reset({
         nombre: cliente.nombre,
-        cedula: cliente.cedula,
+        cedula: cliente.cedula ?? '',
         telefono: cliente.telefono ?? '',
         fecha_inicio: cliente.fecha_inicio.slice(0, 10),
         observaciones: cliente.observaciones ?? '',
@@ -70,8 +70,9 @@ export default function ClienteFormDialog({ open, onClose, onSubmit, cliente }: 
             </div>
 
             <div className="space-y-1">
-              <Label>{CLIENTES_LABELS.cedula}</Label>
+              <Label>{CLIENTES_LABELS.cedulaOpcional}</Label>
               <Input placeholder={CLIENTES_LABELS.cedulaPlaceholder} {...register('cedula')} />
+              <p className="text-xs text-gray-500">{CLIENTES_LABELS.cedulaAyuda}</p>
               {errors.cedula && <p className="text-xs text-red-500">{errors.cedula.message}</p>}
             </div>
           </div>

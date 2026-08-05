@@ -33,7 +33,13 @@ export default function ClientesTable({ clientes, onEdit, onDelete, onToggleEsta
           {clientes.map((cliente) => (
             <tr key={cliente.id} className="hover:bg-gray-50">
               <td className="px-4 py-3 font-medium">{cliente.nombre}</td>
-              <td className="px-4 py-3 text-gray-600">{cliente.cedula}</td>
+              <td className="px-4 py-3 text-gray-600">
+                {cliente.cedula ?? (
+                  <Badge variant="outline" className="border-amber-300 text-amber-700">
+                    {CLIENTES_LABELS.sinCedula}
+                  </Badge>
+                )}
+              </td>
               <td className="px-4 py-3 text-gray-600">{cliente.telefono ?? '—'}</td>
               <td className="px-4 py-3 text-gray-600">
                 {formatearFecha(cliente.fecha_inicio)}

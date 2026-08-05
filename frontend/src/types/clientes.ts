@@ -1,7 +1,8 @@
 export interface Cliente {
   id: number
   nombre: string
-  cedula: string
+  // Opcional: los clientes menores de edad pueden no tenerla.
+  cedula: string | null
   telefono: string | null
   fecha_inicio: string
   observaciones: string | null
@@ -27,7 +28,7 @@ export interface ClienteConFacturas extends Cliente {
 export interface ClienteEnMora {
   id: number
   nombre: string
-  cedula: string
+  cedula: string | null
   telefono: string | null
   fecha_proximo_pago: string
   paquete_nombre: string

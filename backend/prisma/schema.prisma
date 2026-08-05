@@ -18,7 +18,7 @@ model categorias {
 model clientes {
   id            Int        @id @default(autoincrement())
   nombre        String     @db.VarChar(150)
-  cedula        String     @unique @db.VarChar(30)
+  cedula        String?    @unique @db.VarChar(30)
   telefono      String?    @db.VarChar(30)
   fecha_inicio  DateTime   @db.Date
   observaciones String?

@@ -3,7 +3,7 @@ import type { Categoria } from './categorias'
 export interface FacturaCliente {
   id: number
   nombre: string
-  cedula: string
+  cedula: string | null
   estado: string
 }
 
