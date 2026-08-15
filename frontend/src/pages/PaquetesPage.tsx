@@ -9,7 +9,9 @@ import PaqueteDeleteDialog from '@/components/paquetes/PaqueteDeleteDialog'
 import CategoriasTable from '@/components/categorias/CategoriasTable'
 import CategoriaFormDialog from '@/components/categorias/CategoriaFormDialog'
 import CategoriaDeleteDialog from '@/components/categorias/CategoriaDeleteDialog'
+import Paginacion from '@/components/common/Paginacion'
 import { usePaquetes, useCreatePaquete, useUpdatePaquete, useDeletePaquete } from '@/hooks/usePaquetes'
+import { usePaginacion } from '@/hooks/usePaginacion'
 import { useCategorias, useCreateCategoria, useUpdateCategoria, useDeleteCategoria } from '@/hooks/useCategorias'
 import { PAQUETES_LABELS } from '@/constants/paquetes.constants'
 import { CATEGORIAS_LABELS } from '@/constants/categorias.constants'
@@ -49,6 +51,14 @@ export default function PaquetesPage() {
       return coincideNombre && coincideCategoria && coincideEstado
     })
   }, [paquetes, busqueda, filtroCategoria, filtroEstado])
+
+  const { items: paquetesPagina, control: paginacionPaquetes } = usePaginacion(paquetesFiltrados, [
+    busqueda,
+    filtroCategoria,
+    filtroEstado,
+  ])
+  // Las categorías no tienen filtros: solo se parten en páginas.
+  const { items: categoriasPagina, control: paginacionCategorias } = usePaginacion(categorias)
 
   async function handleSubmitPaquete(data: PaqueteFormData) {
     if (paqueteEditar) {
@@ -128,12 +138,15 @@ export default function PaquetesPage() {
           {loadingPaquetes ? (
             <p className="text-center text-gray-400 py-8">Cargando...</p>
           ) : (
-            <PaquetesTable
-              paquetes={paquetesFiltrados}
-              onEdit={(p) => { setPaqueteEditar(p); setPaqueteFormOpen(true) }}
-              onDelete={setPaqueteEliminar}
-              onToggleEstado={handleToggleEstadoPaquete}
-            />
+            <>
+              <PaquetesTable
+                paquetes={paquetesPagina}
+                onEdit={(p) => { setPaqueteEditar(p); setPaqueteFormOpen(true) }}
+                onDelete={setPaqueteEliminar}
+                onToggleEstado={handleToggleEstadoPaquete}
+              />
+              <Paginacion control={paginacionPaquetes} />
+            </>
           )}
         </TabsContent>
 
@@ -147,11 +160,14 @@ export default function PaquetesPage() {
           {loadingCategorias ? (
             <p className="text-center text-gray-400 py-8">Cargando...</p>
           ) : (
-            <CategoriasTable
-              categorias={categorias}
-              onEdit={(c) => { setCategoriaEditar(c); setCategoriaFormOpen(true) }}
-              onDelete={setCategoriaEliminar}
-            />
+            <>
+              <CategoriasTable
+                categorias={categoriasPagina}
+                onEdit={(c) => { setCategoriaEditar(c); setCategoriaFormOpen(true) }}
+                onDelete={setCategoriaEliminar}
+              />
+              <Paginacion control={paginacionCategorias} />
+            </>
           )}
         </TabsContent>
       </Tabs>

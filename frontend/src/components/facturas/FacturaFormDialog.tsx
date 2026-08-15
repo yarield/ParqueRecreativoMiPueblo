@@ -110,8 +110,20 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
   // factura (el del paquete, si lo hay, solo sirve de valor inicial); en uno de
   // precio fijo se toma del paquete y el campo queda bloqueado.
   const esPrecioAbierto = paqueteSeleccionado?.precio_abierto ?? false
+  // En un paquete de hotel el precio base sale de la tarifa por noche por las
+  // noches de la estadía; el campo de precio base queda de solo lectura.
+  const esPorNoche = paqueteSeleccionado?.cobro_por_noche ?? false
+  // Ninguno de los dos genera ciclo: son cobros de una sola vez.
+  const esPagoUnico = esPrecioAbierto || esPorNoche
   const precioPaquete = paqueteSeleccionado?.precio != null ? parseFloat(paqueteSeleccionado.precio) : 0
-  const precioBase = esPrecioAbierto ? Number(watch('precio_base')) || 0 : precioPaquete
+
+  const tarifaNoche = Number(watch('precio_noche')) || 0
+  const noches = Number(watch('noches')) || 0
+  const precioBase = esPorNoche
+    ? Number((tarifaNoche * noches).toFixed(2))
+    : esPrecioAbierto
+      ? Number(watch('precio_base')) || 0
+      : precioPaquete
 
   // Desglose del monto: precio base menos el descuento de esta factura, que se
   // resuelve a un monto absoluto y no puede superar el precio base.
@@ -143,16 +155,16 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
   }, [esPrecioAbierto, precioBase, descuentoMonto, montoFinal, setValue])
 
   // Auto-calcular fecha_proximo_pago al cambiar paquete o fecha. Un paquete de
-  // precio abierto se cobra una sola vez: se limpia la fecha en vez de calcularla.
+  // pago único no renueva: se limpia la fecha en vez de calcularla.
   useEffect(() => {
-    if (esPrecioAbierto) {
+    if (esPagoUnico) {
       setValue('fecha_proximo_pago', undefined)
     } else if (paqueteSeleccionado && fechaFacturacion) {
       setValue('fecha_proximo_pago', calcularProximoPago(fechaFacturacion, paqueteSeleccionado, facturasCliente))
     }
     // facturasCliente se representa por facturasClienteKey en las dependencias.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [esPrecioAbierto, paqueteSeleccionado?.id, fechaFacturacion, facturasClienteKey, setValue])
+  }, [esPagoUnico, paqueteSeleccionado?.id, fechaFacturacion, facturasClienteKey, setValue])
 
   // Poblar/limpiar el form cada vez que se abre el diálogo. Depender de `open`
   // asegura que al reabrir para "Nueva factura" no queden datos de la anterior.
@@ -173,6 +185,8 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
         fecha_facturacion: factura.fecha_facturacion.slice(0, 10),
         fecha_proximo_pago: factura.fecha_proximo_pago?.slice(0, 10),
         precio_base: base,
+        noches: factura.noches,
+        precio_noche: factura.precio_noche != null ? parseFloat(factura.precio_noche) : null,
         descuento_monto: parseFloat(factura.descuento_monto),
         monto: parseFloat(factura.monto),
         origen: factura.origen ?? '',
@@ -190,6 +204,8 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
         cliente_id: 0,
         paquete_id: 0,
         precio_base: 0,
+        noches: null,
+        precio_noche: null,
         descuento_monto: 0,
         monto: 0,
         origen: '',
@@ -291,6 +307,16 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
                   if (p?.precio_abierto) {
                     setValue('precio_base', p.precio != null ? parseFloat(p.precio) : 0)
                   }
+                  // En uno por noche se prellena la tarifa del paquete y una
+                  // noche; en cualquier otro se limpian para que no viajen al
+                  // servidor datos de un paquete que ya no está seleccionado.
+                  if (p?.cobro_por_noche) {
+                    setValue('precio_noche', p.precio != null ? parseFloat(p.precio) : null)
+                    setValue('noches', 1)
+                  } else {
+                    setValue('precio_noche', null)
+                    setValue('noches', null)
+                  }
                   // Si la categoría no está seleccionada, adoptar la del paquete elegido.
                   if (categoriaFiltro === 'todos' && p) {
                     setCategoriaFiltro(String(p.categoria_id))
@@ -323,7 +349,7 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
 
             <div className="space-y-1">
               <Label>{FACTURAS_LABELS.fechaProximoPago}</Label>
-              {esPrecioAbierto ? (
+              {esPagoUnico ? (
                 <Input value={FACTURAS_LABELS.pagoUnico} readOnly className="bg-gray-50 text-gray-500" />
               ) : (
                 <Input type="date" {...register('fecha_proximo_pago')} />
@@ -348,6 +374,39 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
               {precioPaquete > 0 && ` ${FACTURAS_LABELS.precioReferencia}: ${precioPaquete.toFixed(2)}`}
               {` ${FACTURAS_LABELS.pagoUnicoAyuda}`}
             </p>
+          )}
+
+          {/* Estadía: la tarifa arranca en la del paquete pero se puede ajustar
+              (temporada, tarifa negociada) y el precio base se recalcula solo. */}
+          {esPorNoche && (
+            <div className="grid grid-cols-3 gap-3 items-start">
+              <div className="space-y-1">
+                <Label>{FACTURAS_LABELS.tarifaNoche}</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...register('precio_noche', { setValueAs: (v) => (v === '' || v === null ? null : Number(v)) })}
+                />
+                {errors.precio_noche && <p className="text-xs text-red-500">{errors.precio_noche.message}</p>}
+              </div>
+
+              <div className="space-y-1">
+                <Label>{FACTURAS_LABELS.noches}</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  {...register('noches', { setValueAs: (v) => (v === '' || v === null ? null : Number(v)) })}
+                />
+                {errors.noches && <p className="text-xs text-red-500">{errors.noches.message}</p>}
+              </div>
+
+              <p className="text-xs text-gray-500 pt-6">
+                {FACTURAS_LABELS.porNocheAyuda}
+                {` ${FACTURAS_LABELS.pagoUnicoAyuda}`}
+              </p>
+            </div>
           )}
 
           {/* Descuento adicional al cliente y comisión del canal, lado a lado:
@@ -422,6 +481,12 @@ export default function FacturaFormDialog({ open, onClose, onSubmit, factura, cl
           {/* Desglose: reemplaza los campos de solo lectura que antes ocupaban
               una fila cada uno. Las líneas en cero se omiten. */}
           <div className="rounded-md bg-gray-50 px-3 py-2 text-sm space-y-1">
+            {esPorNoche && (
+              <div className="flex justify-between text-gray-600">
+                <span>{FACTURAS_LABELS.tarifaNoche}</span>
+                <span>{`${tarifaNoche.toFixed(2)} × ${noches}`}</span>
+              </div>
+            )}
             <div className="flex justify-between text-gray-600">
               <span>{FACTURAS_LABELS.precioBase}</span>
               <span>{precioBase.toFixed(2)}</span>

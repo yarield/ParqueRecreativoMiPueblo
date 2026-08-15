@@ -19,13 +19,38 @@ export default function PaqueteFormDialog({ open, onClose, onSubmit, paquete, ca
 
   const { register, handleSubmit, setValue, watch, reset, formState: { errors, isSubmitting } } = useForm<PaqueteFormData>({
     resolver: zodResolver(paqueteSchema) as Resolver<PaqueteFormData>,
-    defaultValues: { estado: 'activo', duracion_unidad: 'dias', precio: null, precio_abierto: false },
+    defaultValues: { estado: 'activo', duracion_unidad: 'dias', precio: null, precio_abierto: false, cobro_por_noche: false },
   })
 
   const precioAbierto = watch('precio_abierto')
+  const porNoche = watch('cobro_por_noche')
+  // Los tres modos son excluyentes, así que se manejan como un solo selector.
+  const modo = porNoche ? 'noche' : precioAbierto ? 'abierto' : 'fijo'
+
+  function cambiarModo(valor: string) {
+    setValue('precio_abierto', valor === 'abierto')
+    setValue('cobro_por_noche', valor === 'noche')
+    // La duración de una estadía la fija cada factura (las noches), así que el
+    // paquete no la usa: se guarda un valor válido para no bloquear el submit.
+    if (valor === 'noche') setValue('duracion_dias', 1)
+  }
+
   // Cambiar el modo de precio no reescribe el histórico: las facturas ya
   // emitidas guardan su propio precio_base. Se avisa igual para evitar dudas.
-  const modoCambiado = !!paquete && precioAbierto !== paquete.precio_abierto
+  const modoCambiado =
+    !!paquete && (precioAbierto !== paquete.precio_abierto || porNoche !== paquete.cobro_por_noche)
+
+  const ayudaModo = porNoche
+    ? PAQUETES_LABELS.porNocheAyuda
+    : precioAbierto
+      ? PAQUETES_LABELS.precioAbiertoAyuda
+      : PAQUETES_LABELS.precioFijoAyuda
+
+  const etiquetaPrecio = porNoche
+    ? PAQUETES_LABELS.tarifaNoche
+    : precioAbierto
+      ? PAQUETES_LABELS.precioReferencia
+      : PAQUETES_LABELS.precio
 
   useEffect(() => {
     if (!open) return
@@ -35,13 +60,21 @@ export default function PaqueteFormDialog({ open, onClose, onSubmit, paquete, ca
         nombre: paquete.nombre,
         precio: paquete.precio != null ? parseFloat(paquete.precio) : null,
         precio_abierto: paquete.precio_abierto,
+        cobro_por_noche: paquete.cobro_por_noche,
         categoria_id: paquete.categoria_id,
         duracion_dias: paquete.duracion_dias,
         duracion_unidad: paquete.duracion_unidad,
         estado: paquete.estado,
       })
     } else {
-      reset({ estado: 'activo', categoria_id: 0, duracion_unidad: 'dias', precio: null, precio_abierto: false })
+      reset({
+        estado: 'activo',
+        categoria_id: 0,
+        duracion_unidad: 'dias',
+        precio: null,
+        precio_abierto: false,
+        cobro_por_noche: false,
+      })
     }
   }, [paquete, reset, open])
 
@@ -78,29 +111,27 @@ export default function PaqueteFormDialog({ open, onClose, onSubmit, paquete, ca
 
           <div className="space-y-1">
             <Label>{PAQUETES_LABELS.modoPrecio}</Label>
-            <Select
-              value={precioAbierto ? 'abierto' : 'fijo'}
-              onValueChange={(v) => setValue('precio_abierto', v === 'abierto')}
-            >
+            <Select value={modo} onValueChange={cambiarModo}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="fijo">{PAQUETES_LABELS.precioFijo}</SelectItem>
                 <SelectItem value="abierto">{PAQUETES_LABELS.precioAbierto}</SelectItem>
+                <SelectItem value="noche">{PAQUETES_LABELS.porNoche}</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-gray-500">
-              {precioAbierto ? PAQUETES_LABELS.precioAbiertoAyuda : PAQUETES_LABELS.precioFijoAyuda}
-            </p>
+            <p className="text-xs text-gray-500">{ayudaModo}</p>
             {modoCambiado && (
               <p className="text-xs text-amber-600">{PAQUETES_MESSAGES.cambioModoPrecio}</p>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {/* En modo por noche la duración no aplica: la estadía la definen las
+              noches de cada factura, así que el precio ocupa la fila entera. */}
+          <div className={porNoche ? '' : 'grid grid-cols-2 gap-4'}>
             <div className="space-y-1">
-              <Label>{precioAbierto ? PAQUETES_LABELS.precioReferencia : PAQUETES_LABELS.precio}</Label>
+              <Label>{etiquetaPrecio}</Label>
               <Input
                 type="number"
                 step="0.01"
@@ -110,11 +141,13 @@ export default function PaqueteFormDialog({ open, onClose, onSubmit, paquete, ca
               {errors.precio && <p className="text-xs text-red-500">{errors.precio.message}</p>}
             </div>
 
-            <div className="space-y-1">
-              <Label>{PAQUETES_LABELS.duracion}</Label>
-              <Input type="number" min="1" {...register('duracion_dias')} />
-              {errors.duracion_dias && <p className="text-xs text-red-500">{errors.duracion_dias.message}</p>}
-            </div>
+            {!porNoche && (
+              <div className="space-y-1">
+                <Label>{PAQUETES_LABELS.duracion}</Label>
+                <Input type="number" min="1" {...register('duracion_dias')} />
+                {errors.duracion_dias && <p className="text-xs text-red-500">{errors.duracion_dias.message}</p>}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">

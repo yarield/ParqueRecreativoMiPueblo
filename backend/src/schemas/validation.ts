@@ -36,20 +36,37 @@ const paqueteBase = z.object({
   // referencia para prellenar la factura; si no, se escribe desde cero.
   precio: z.coerce.number().positive('El precio debe ser mayor a 0').max(DEC_MAX).nullish(),
   precio_abierto: z.boolean().default(false),
+  // Paquete de hotel: el importe sale de multiplicar la tarifa por noche por la
+  // cantidad de noches, ambas indicadas en la factura. El `precio` del paquete
+  // pasa a ser la tarifa por noche por defecto.
+  cobro_por_noche: z.boolean().default(false),
   categoria_id: z.coerce.number().int().positive('La categoría es requerida'),
   duracion_dias: z.coerce.number().int().positive('La duración debe ser mayor a 0'),
   duracion_unidad: z.enum(['dias', 'meses']).default('dias'),
   estado: z.enum(['activo', 'inactivo']).default('activo'),
 })
 
-// Un paquete de precio fijo obliga a tener precio. En un update parcial que no
+type PaqueteModo = { precio_abierto?: boolean; cobro_por_noche?: boolean; precio?: number | null }
+
+// Solo un paquete de precio fijo obliga a tener precio: en los otros dos modos
+// el precio se escribe (o se ajusta) al facturar. En un update parcial que no
 // toque el modo no hay nada que validar aquí.
-const precioSegunModo = (d: { precio_abierto?: boolean; precio?: number | null }) =>
-  d.precio_abierto !== false || d.precio != null
+const precioSegunModo = (d: PaqueteModo) =>
+  d.precio_abierto !== false || d.cobro_por_noche !== false || d.precio != null
 const msgPrecio = { path: ['precio'], message: 'El precio es requerido en un paquete de precio fijo' }
 
-export const paqueteCreateSchema = paqueteBase.refine(precioSegunModo, msgPrecio)
-export const paqueteUpdateSchema = paqueteBase.partial().refine(precioSegunModo, msgPrecio)
+// Los modos son excluyentes: el cobro por noche ya ajusta la tarifa en cada factura.
+const modosExcluyentes = (d: PaqueteModo) => !(d.precio_abierto && d.cobro_por_noche)
+const msgModo = {
+  path: ['cobro_por_noche'],
+  message: 'Un paquete no puede ser de precio abierto y por noche a la vez',
+}
+
+export const paqueteCreateSchema = paqueteBase.refine(precioSegunModo, msgPrecio).refine(modosExcluyentes, msgModo)
+export const paqueteUpdateSchema = paqueteBase
+  .partial()
+  .refine(precioSegunModo, msgPrecio)
+  .refine(modosExcluyentes, msgModo)
 
 // ---------- Facturas ----------
 // monto, comision_monto y monto_neto NO se aceptan del cliente: se recalculan
@@ -65,6 +82,10 @@ export const facturaSchema = z
     // fuerza a null. La ruta también la exige cuando el paquete sí tiene ciclo.
     fecha_proximo_pago: fechaISO.nullish(),
     precio_base: z.coerce.number().min(0, 'El precio no puede ser negativo').max(DEC_MAX).optional(),
+    // Solo se usan cuando el paquete se cobra por noche; en el resto la ruta las
+    // descarta y las guarda como NULL.
+    noches: z.coerce.number().int().positive('Las noches deben ser mayor a 0').nullish(),
+    precio_noche: z.coerce.number().min(0, 'La tarifa no puede ser negativa').max(DEC_MAX).nullish(),
     descuento_monto: z.coerce.number().min(0, 'El descuento no puede ser negativo').max(DEC_MAX).default(0),
     origen: z.string().trim().max(100).nullish(),
     comision_tipo: z.enum(['porcentaje', 'monto']).default('porcentaje'),
@@ -81,3 +102,25 @@ export const facturaSchema = z
     path: ['comision_valor'],
     message: 'El porcentaje de comisión no puede superar 100',
   })
+
+// ---------- Exportación de facturación ----------
+// El período del reporte: un rango de fechas, un mes completo o todo lo
+// facturado. Los campos que no corresponden al modo elegido se ignoran.
+export const facturaExportQuerySchema = z
+  .object({
+    modo: z.enum(['rango', 'mes', 'total']).default('total'),
+    desde: fechaISO.optional(),
+    hasta: fechaISO.optional(),
+    mes: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, 'Mes inválido: use el formato AAAA-MM').optional(),
+  })
+  .refine((d) => d.modo !== 'rango' || (!!d.desde && !!d.hasta), {
+    path: ['desde'],
+    message: 'Indique la fecha inicial y la final del rango',
+  })
+  .refine((d) => d.modo !== 'mes' || !!d.mes, { path: ['mes'], message: 'Indique el mes a exportar' })
+  .refine(
+    (d) => d.modo !== 'rango' || !d.desde || !d.hasta || Date.parse(d.hasta) >= Date.parse(d.desde),
+    { path: ['hasta'], message: 'La fecha final no puede ser anterior a la inicial' }
+  )
+
+export type FacturaExportQuery = z.infer<typeof facturaExportQuerySchema>
