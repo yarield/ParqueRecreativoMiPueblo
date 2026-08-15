@@ -17,3 +17,24 @@ export function validate(schema: ZodType) {
     next()
   }
 }
+
+export interface QueryRequest<T> extends Request {
+  datosQuery?: T
+}
+
+/**
+ * Igual que `validate`, pero para los parámetros de la URL (`?desde=...`). En
+ * Express 5 `req.query` es de solo lectura, así que el resultado ya parseado se
+ * expone en `req.datosQuery` en vez de reemplazarlo.
+ */
+export function validateQuery<T>(schema: ZodType<T>) {
+  return (req: QueryRequest<T>, res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.query)
+    if (!result.success) {
+      res.status(400).json({ error: result.error.issues[0]?.message ?? 'Parámetros inválidos' })
+      return
+    }
+    req.datosQuery = result.data
+    next()
+  }
+}

@@ -6,7 +6,9 @@ import ClientesTable from '@/components/clientes/ClientesTable'
 import ClienteFormDialog from '@/components/clientes/ClienteFormDialog'
 import ClienteDeleteDialog from '@/components/clientes/ClienteDeleteDialog'
 import ClienteHistorialDialog from '@/components/clientes/ClienteHistorialDialog'
+import Paginacion from '@/components/common/Paginacion'
 import { useClientes, useCreateCliente, useUpdateCliente, useDeleteCliente } from '@/hooks/useClientes'
+import { usePaginacion } from '@/hooks/usePaginacion'
 import { CLIENTES_LABELS, CLIENTES_MESSAGES } from '@/constants/clientes.constants'
 import type { Cliente } from '@/types/clientes'
 import type { ClienteFormData } from '@/schemas/clientes.schema'
@@ -48,6 +50,14 @@ export default function ClientesPage() {
       return coincideBusqueda && coincideEstado && coincideCedula && coincideFechaDesde && coincideFechaHasta
     })
   }, [clientes, busqueda, filtroEstado, filtroCedula, filtroFechaDesde, filtroFechaHasta])
+
+  const { items: clientesPagina, control: paginacion } = usePaginacion(clientesFiltrados, [
+    busqueda,
+    filtroEstado,
+    filtroCedula,
+    filtroFechaDesde,
+    filtroFechaHasta,
+  ])
 
   function handleBuscar() {
     setBusqueda(busquedaInput)
@@ -145,13 +155,16 @@ export default function ClientesPage() {
       {isLoading ? (
         <p className="text-center text-gray-400 py-8">Cargando...</p>
       ) : (
-        <ClientesTable
-          clientes={clientesFiltrados}
-          onEdit={(c) => { setClienteEditar(c); setFormOpen(true) }}
-          onDelete={setClienteEliminar}
-          onToggleEstado={handleToggleEstado}
-          onVerHistorial={setClienteHistorial}
-        />
+        <>
+          <ClientesTable
+            clientes={clientesPagina}
+            onEdit={(c) => { setClienteEditar(c); setFormOpen(true) }}
+            onDelete={setClienteEliminar}
+            onToggleEstado={handleToggleEstado}
+            onVerHistorial={setClienteHistorial}
+          />
+          <Paginacion control={paginacion} />
+        </>
       )}
 
       <ClienteFormDialog

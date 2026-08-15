@@ -29,14 +29,25 @@ export default function PaquetesTable({ paquetes, onEdit, onDelete, onToggleEsta
               <td className="px-4 py-3 text-right">
                 <span className="inline-flex items-center justify-end gap-1.5">
                   {paquete.precio != null ? parseFloat(paquete.precio).toFixed(2) : PAQUETES_LABELS.sinPrecio}
+                  {paquete.cobro_por_noche && paquete.precio != null && (
+                    <span className="text-gray-500">{PAQUETES_LABELS.sufijoNoche}</span>
+                  )}
                   {paquete.precio_abierto && (
                     <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
                       {PAQUETES_LABELS.precioAbiertoBadge}
                     </span>
                   )}
+                  {paquete.cobro_por_noche && (
+                    <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-medium text-sky-700">
+                      {PAQUETES_LABELS.porNocheBadge}
+                    </span>
+                  )}
                 </span>
               </td>
-              <td className="px-4 py-3 text-right text-gray-600">{paquete.duracion_dias}d</td>
+              {/* Un paquete por noche no tiene duración fija: la fija la factura. */}
+              <td className="px-4 py-3 text-right text-gray-600">
+                {paquete.cobro_por_noche ? '—' : `${paquete.duracion_dias}d`}
+              </td>
               <td className="px-4 py-3">
                 <Badge variant={paquete.estado === 'activo' ? 'default' : 'secondary'}>
                   {paquete.estado === 'activo' ? PAQUETES_LABELS.activo : PAQUETES_LABELS.inactivo}

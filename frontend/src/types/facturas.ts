@@ -12,6 +12,7 @@ export interface FacturaPaquete {
   nombre: string
   precio: string | null
   precio_abierto: boolean
+  cobro_por_noche: boolean
   duracion_dias: number
   categoria_id: number
   categorias: Categoria
@@ -29,9 +30,12 @@ export interface Factura {
   paquete_id: number
   usuario_id: number | null
   fecha_facturacion: string
-  // null = pago único (paquete de precio abierto), sin ciclo siguiente.
+  // null = pago único (precio abierto o cobro por noche), sin ciclo siguiente.
   fecha_proximo_pago: string | null
   precio_base: string
+  // Solo en facturas de paquetes que se cobran por noche; null en el resto.
+  noches: number | null
+  precio_noche: string | null
   descuento_monto: string
   monto: string
   origen: string | null

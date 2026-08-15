@@ -1,5 +1,6 @@
 import type { Factura } from '@/types/facturas'
 import type { FacturaFormData } from '@/schemas/facturas.schema'
+import type { FacturaExportFormData } from '@/schemas/facturasExport.schema'
 import type { Cliente } from '@/types/clientes'
 import type { Paquete } from '@/types/paquetes'
 import type { Categoria } from '@/types/categorias'
@@ -20,6 +21,12 @@ export interface FacturaFormDialogProps {
   paquetes: Paquete[]
   categorias: Categoria[]
   facturas: Factura[]
+}
+
+export interface FacturaExportDialogProps {
+  open: boolean
+  onClose: () => void
+  onExportar: (data: FacturaExportFormData) => Promise<void>
 }
 
 export interface FacturasTableProps {
