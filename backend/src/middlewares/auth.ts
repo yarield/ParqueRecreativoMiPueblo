@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { env } from '../config/env'
+import { auditContext } from '../lib/auditContext'
 
 export interface AuthRequest extends Request {
   usuarioId?: number
@@ -21,7 +22,7 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
     const payload = jwt.verify(token, env.JWT_SECRET) as { id: number; email: string }
     req.usuarioId = payload.id
     req.usuarioEmail = payload.email
-    next()
+    auditContext.run({ usuarioId: payload.id, usuarioEmail: payload.email }, next)
   } catch {
     res.status(401).json({ error: 'Token inválido o expirado' })
   }

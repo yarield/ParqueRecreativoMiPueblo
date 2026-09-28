@@ -68,6 +68,7 @@ cat > .env <<'EOF'
 DATABASE_URL="postgresql://natacion_user:<una_clave_fuerte>@localhost:5432/natacion"
 JWT_SECRET="<una_cadena_larga_y_aleatoria>"
 PORT=3000
+NODE_ENV=production
 EOF
 
 npx prisma migrate deploy      # aplica todas las migraciones
@@ -202,6 +203,18 @@ Ejemplo de backup diario (crontab `crontab -e`):
 pm2 status                 # ver estado del backend
 pm2 logs natacion-api      # ver logs del backend
 pm2 restart natacion-api   # reiniciar backend
+```
+
+> El backend registra ahí cada petición HTTP (método, ruta, status, usuario) y
+> eventos de auditoría: login exitoso/fallido, y creación/edición/borrado de
+> clientes, paquetes, categorías y facturas, cada uno con el usuario que lo hizo.
+> Con `NODE_ENV=production` (ya en el `.env` de arriba) el log sale en JSON, una
+> línea por evento — útil para filtrar, por ejemplo
+> `pm2 logs natacion-api --lines 200 --nostream | grep '"usuarioEmail"'`.
+> PM2 no rota esos logs por defecto y pueden crecer sin límite; para eso existe
+> `pm2 install pm2-logrotate` (rotación automática, no viene activada de fábrica).
+
+```bash
 
 # Actualizar la app tras cambios en el repo (ver la sección 8 antes de correrlo):
 cd /opt/natacion && git pull
@@ -279,6 +292,7 @@ psql -U natacion_user -d natacion < /opt/backups/antes_de_actualizar_<fecha>.sql
 | `precio_abierto_y_comision` | Agrega columnas nuevas. Rellena `monto_neto = monto` en las facturas existentes, para que su neto quede correcto. **No pierde nada.** |
 | `quitar_deduccion_paquetes` | Elimina `descuento_tipo` y `descuento_valor` de `paquetes`. **Se pierde el contenido de esas dos columnas** (la deducción por paquete ya no existe como funcionalidad). Las facturas ya emitidas no se tocan: su descuento quedó congelado en `facturas.descuento_monto`. |
 | `pago_unico_precio_abierto` | Hace opcional `facturas.fecha_proximo_pago`. Las facturas existentes conservan su fecha. |
+| `add_auditoria` | Crea la tabla nueva `auditoria` (historial de quién crea/edita/borra qué). No toca ninguna tabla existente. **No pierde nada.** Por ahora la tabla queda vacía hasta que el backend empiece a escribir en ella. |
 
 Estas migraciones se probaron sobre una base vacía y el esquema resultante quedó
 idéntico al de una base ya en uso.

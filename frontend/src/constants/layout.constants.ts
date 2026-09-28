@@ -8,5 +8,6 @@ export const LAYOUT_LABELS = {
     paquetes: 'Paquetes',
     facturas: 'Facturas',
     estadisticas: 'Estadísticas',
+    auditoria: 'Auditoría',
   },
 } as const

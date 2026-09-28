@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma'
-import { authMiddleware } from '../middlewares/auth'
+import { authMiddleware, AuthRequest } from '../middlewares/auth'
 import { validate } from '../middlewares/validate'
 import { categoriaCreateSchema, categoriaUpdateSchema } from '../schemas/validation'
+import { logger } from '../lib/logger'
 
 const router = Router()
 
@@ -33,9 +34,10 @@ router.get('/:id', async (req, res, next) => {
 })
 
 // POST /api/categorias — protegido
-router.post('/', authMiddleware, validate(categoriaCreateSchema), async (req, res, next) => {
+router.post('/', authMiddleware, validate(categoriaCreateSchema), async (req: AuthRequest, res, next) => {
   try {
     const categoria = await prisma.categorias.create({ data: req.body })
+    logger.info({ categoriaId: categoria.id, usuarioEmail: req.usuarioEmail }, 'Categoría creada')
     res.status(201).json(categoria)
   } catch (err) {
     next(err)
@@ -43,12 +45,13 @@ router.post('/', authMiddleware, validate(categoriaCreateSchema), async (req, re
 })
 
 // PUT /api/categorias/:id — protegido
-router.put('/:id', authMiddleware, validate(categoriaUpdateSchema), async (req, res, next) => {
+router.put('/:id', authMiddleware, validate(categoriaUpdateSchema), async (req: AuthRequest, res, next) => {
   try {
     const categoria = await prisma.categorias.update({
       where: { id: Number(req.params.id) },
       data: req.body
     })
+    logger.info({ categoriaId: categoria.id, usuarioEmail: req.usuarioEmail }, 'Categoría actualizada')
     res.json(categoria)
   } catch (err) {
     next(err)
@@ -56,11 +59,12 @@ router.put('/:id', authMiddleware, validate(categoriaUpdateSchema), async (req, 
 })
 
 // DELETE /api/categorias/:id — protegido
-router.delete('/:id', authMiddleware, async (req, res, next) => {
+router.delete('/:id', authMiddleware, async (req: AuthRequest, res, next) => {
   try {
     await prisma.categorias.delete({
       where: { id: Number(req.params.id) }
     })
+    logger.info({ categoriaId: Number(req.params.id), usuarioEmail: req.usuarioEmail }, 'Categoría eliminada')
     res.status(204).send()
   } catch (err) {
     next(err)

@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma'
-import { authMiddleware } from '../middlewares/auth'
+import { authMiddleware, AuthRequest } from '../middlewares/auth'
 import { validate } from '../middlewares/validate'
 import { paqueteCreateSchema, paqueteUpdateSchema } from '../schemas/validation'
+import { logger } from '../lib/logger'
 
 const router = Router()
 
@@ -36,7 +37,7 @@ router.get('/:id', async (req, res, next) => {
 })
 
 // POST /api/paquetes — protegido
-router.post('/', authMiddleware, validate(paqueteCreateSchema), async (req, res, next) => {
+router.post('/', authMiddleware, validate(paqueteCreateSchema), async (req: AuthRequest, res, next) => {
   try {
     const categoria = await prisma.categorias.findUnique({ where: { id: req.body.categoria_id } })
     if (!categoria) {
@@ -44,6 +45,7 @@ router.post('/', authMiddleware, validate(paqueteCreateSchema), async (req, res,
       return
     }
     const paquete = await prisma.paquetes.create({ data: req.body })
+    logger.info({ paqueteId: paquete.id, usuarioEmail: req.usuarioEmail }, 'Paquete creado')
     res.status(201).json(paquete)
   } catch (err) {
     next(err)
@@ -51,7 +53,7 @@ router.post('/', authMiddleware, validate(paqueteCreateSchema), async (req, res,
 })
 
 // PUT /api/paquetes/:id — protegido
-router.put('/:id', authMiddleware, validate(paqueteUpdateSchema), async (req, res, next) => {
+router.put('/:id', authMiddleware, validate(paqueteUpdateSchema), async (req: AuthRequest, res, next) => {
   try {
     if (req.body.categoria_id !== undefined) {
       const categoria = await prisma.categorias.findUnique({ where: { id: req.body.categoria_id } })
@@ -64,6 +66,7 @@ router.put('/:id', authMiddleware, validate(paqueteUpdateSchema), async (req, re
       where: { id: Number(req.params.id) },
       data: req.body
     })
+    logger.info({ paqueteId: paquete.id, usuarioEmail: req.usuarioEmail }, 'Paquete actualizado')
     res.json(paquete)
   } catch (err) {
     next(err)
@@ -71,11 +74,12 @@ router.put('/:id', authMiddleware, validate(paqueteUpdateSchema), async (req, re
 })
 
 // DELETE /api/paquetes/:id — protegido
-router.delete('/:id', authMiddleware, async (req, res, next) => {
+router.delete('/:id', authMiddleware, async (req: AuthRequest, res, next) => {
   try {
     await prisma.paquetes.delete({
       where: { id: Number(req.params.id) }
     })
+    logger.info({ paqueteId: Number(req.params.id), usuarioEmail: req.usuarioEmail }, 'Paquete eliminado')
     res.status(204).send()
   } catch (err) {
     next(err)

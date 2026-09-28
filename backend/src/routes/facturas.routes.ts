@@ -6,6 +6,7 @@ import { validate, validateQuery, QueryRequest } from '../middlewares/validate'
 import { facturaSchema, facturaExportQuerySchema, FacturaExportQuery } from '../schemas/validation'
 import { resolverPeriodo } from '../lib/periodo'
 import { generarExcelFacturas } from '../services/facturasExcel'
+import { logger } from '../lib/logger'
 
 const router = Router()
 
@@ -208,6 +209,7 @@ router.post('/', authMiddleware, validate(facturaSchema), async (req: AuthReques
       },
       include: { clientes: true, paquetes: { include: { categorias: true } } }
     })
+    logger.info({ facturaId: factura.id, clienteId: cliente_id, usuarioEmail: req.usuarioEmail }, 'Factura creada')
     res.status(201).json(factura)
   } catch (err) {
     next(err)
@@ -215,7 +217,7 @@ router.post('/', authMiddleware, validate(facturaSchema), async (req: AuthReques
 })
 
 // PUT /api/facturas/:id — protegido
-router.put('/:id', authMiddleware, validate(facturaSchema), async (req, res, next) => {
+router.put('/:id', authMiddleware, validate(facturaSchema), async (req: AuthRequest, res, next) => {
   try {
     const { cliente_id, paquete_id, fecha_facturacion, fecha_proximo_pago, origen } = req.body
     const paquete = await prisma.paquetes.findUnique({ where: { id: paquete_id } })
@@ -244,6 +246,7 @@ router.put('/:id', authMiddleware, validate(facturaSchema), async (req, res, nex
         ...importe,
       }
     })
+    logger.info({ facturaId: factura.id, usuarioEmail: req.usuarioEmail }, 'Factura actualizada')
     res.json(factura)
   } catch (err) {
     next(err)
@@ -251,11 +254,12 @@ router.put('/:id', authMiddleware, validate(facturaSchema), async (req, res, nex
 })
 
 // DELETE /api/facturas/:id — protegido
-router.delete('/:id', authMiddleware, async (req, res, next) => {
+router.delete('/:id', authMiddleware, async (req: AuthRequest, res, next) => {
   try {
     await prisma.facturas.delete({
       where: { id: Number(req.params.id) }
     })
+    logger.info({ facturaId: Number(req.params.id), usuarioEmail: req.usuarioEmail }, 'Factura eliminada')
     res.status(204).send()
   } catch (err) {
     next(err)

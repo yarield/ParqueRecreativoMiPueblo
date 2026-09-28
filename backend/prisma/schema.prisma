@@ -78,9 +78,27 @@ model paquetes {
 }
 
 model usuarios {
-  id            Int        @id @default(autoincrement())
-  nombre        String     @db.VarChar(150)
-  email         String     @unique @db.VarChar(150)
-  password_hash String     @db.VarChar(255)
+  id            Int         @id @default(autoincrement())
+  nombre        String      @db.VarChar(150)
+  email         String      @unique @db.VarChar(150)
+  password_hash String      @db.VarChar(255)
   facturas      facturas[]
+  auditoria     auditoria[]
+}
+
+// Historial de creación/edición/borrado sobre las demás tablas. Solo se
+// escribe desde el backend (nunca hay endpoint que la edite o borre).
+model auditoria {
+  id               Int       @id @default(autoincrement())
+  tabla            String    @db.VarChar(50)
+  registro_id      Int
+  accion           String    @db.VarChar(20)
+  usuario_id       Int?
+  datos_anteriores Json?
+  datos_nuevos     Json?
+  fecha            DateTime  @default(now())
+  usuarios         usuarios? @relation(fields: [usuario_id], references: [id], onUpdate: NoAction)
+
+  @@index([tabla, registro_id], map: "idx_auditoria_tabla_registro")
+  @@index([fecha], map: "idx_auditoria_fecha")
 }

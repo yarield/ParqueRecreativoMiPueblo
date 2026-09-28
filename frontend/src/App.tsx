@@ -9,6 +9,7 @@ import ClientesPage from '@/pages/ClientesPage'
 import PaquetesPage from '@/pages/PaquetesPage'
 import FacturasPage from '@/pages/FacturasPage'
 import EstadisticasPage from '@/pages/EstadisticasPage'
+import AuditoriaPage from '@/pages/AuditoriaPage'
 
 const queryClient = new QueryClient()
 
@@ -31,6 +32,7 @@ export default function App() {
               <Route path="/paquetes" element={<PaquetesPage />} />
               <Route path="/facturas" element={<FacturasPage />} />
               <Route path="/estadisticas" element={<EstadisticasPage />} />
+              <Route path="/auditoria" element={<AuditoriaPage />} />
               <Route path="*" element={<Navigate to="/clientes" replace />} />
             </Route>
           </Routes>
