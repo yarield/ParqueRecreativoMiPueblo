@@ -121,19 +121,49 @@ El frontend no requiere variables de entorno en desarrollo. `VITE_API_URL` es op
 | `npm run lint` | Corre Oxlint |
 | `npm run preview` | Sirve el build de producción localmente |
 
-## Módulos / recursos de la API
+## Funcionalidad y módulos
 
-Cada recurso vive en su propio archivo de rutas (`backend/src/routes/`):
+El sistema administra el negocio del parque de principio a fin: clientes, qué les vendés, cuánto pagan y qué pasó en el sistema. Cada módulo vive en su propio archivo de rutas (`backend/src/routes/`) y su propia página/hook en el frontend.
 
-- `auth` — login/registro y sesión
-- `usuarios` — gestión de usuarios del sistema
-- `clientes` — clientes del parque
-- `categorias` — categorías de paquetes
-- `paquetes` — paquetes (incluye precio abierto, por noche y comisión por canal)
-- `facturas` — facturación, incluida exportación a Excel
-- `estadisticas` — datos para el dashboard
-- `auditoria` — registro de auditoría de acciones
+### Autenticación (`auth`, `usuarios`)
+Login con email/contraseña (JWT, sesión de 8h) con límite de intentos para frenar fuerza bruta. **No hay registro público**: solo un usuario ya autenticado puede crear cuentas nuevas (`POST /api/auth/register`), pensado para que el admin dé de alta al resto del personal. `usuarios` expone el listado de cuentas del sistema (sin exponer nunca el hash de la contraseña).
+
+### Categorías (`categorias`)
+Agrupan los paquetes (ej. "Piscina", "Cabañas"). Lectura pública (se puede mostrar sin login), escritura protegida. Sirven de base para armar `paquetes`.
+
+### Paquetes (`paquetes`)
+El catálogo de lo que se vende. Cada paquete pertenece a una categoría y admite tres formas de cobro:
+- **Precio fijo**: el monto lo define el paquete.
+- **Precio abierto**: el monto se decide al facturar (útil para servicios variables).
+- **Cobro por noche**: se factura tarifa × cantidad de noches (para hospedaje).
+
+Precio abierto y cobro por noche son siempre de pago único (no generan renovación mensual); el resto sí.
+
+### Clientes (`clientes`)
+Alta, edición y baja de clientes, más dos vistas operativas clave para el día a día:
+- **Próximos a vencer** (`/proximos-a-vencer`): clientes con pago dentro de los próximos 7 días.
+- **En mora** (`/en-mora`): clientes activos cuya última factura ya venció, con días de atraso calculados. Las facturas de pago único no generan mora (no tienen "próximo pago").
+
+Una tarea en segundo plano (`backend/src/tasks/actualizarEstados.ts`) recorre esto una vez al día y lo deja en el log del servidor; **no cambia el estado del cliente automáticamente**, la decisión de marcarlo inactivo la toma el admin a mano.
+
+### Facturación (`facturas`)
+El corazón del negocio. Al crear una factura:
+- El servidor **recalcula el importe desde cero** (nunca confía en lo que mande el cliente/navegador), según el modo de precio del paquete.
+- Soporta **descuentos** (monto fijo) y **comisión por canal de venta** (ej. Booking, Airbnb) como porcentaje o monto fijo — la comisión se calcula sobre lo cobrado y reduce el neto del negocio, no lo que paga el cliente.
+- Guarda `monto` (cobrado al cliente) y `monto_neto` (lo que queda tras la comisión) por separado.
+- Cada factura queda asociada al usuario que la generó (extraído del token, no del body).
+
+También expone **exportación a Excel** (`GET /api/facturas/exportar?modo=...`) filtrable por rango de fechas o por mes, generada con `exceljs` (`backend/src/services/facturasExcel.ts`).
+
+### Estadísticas (`estadisticas`)
+Datos agregados para el dashboard: totales y tasa de cancelación de clientes, ranking de paquetes más vendidos, y series mensuales de clientes nuevos y de ganancias (facturado vs. neto).
+
+### Auditoría (`auditoria`)
+Registro de solo lectura (no tiene POST/PUT/DELETE) de cada `create`/`update`/`delete` sobre clientes, paquetes, categorías, facturas y usuarios. Se completa solo, vía una extensión de Prisma (`backend/src/lib/prisma.ts`) que intercepta esas operaciones y guarda quién hizo el cambio y los datos antes/después (sin el hash de contraseña). Permite responder "¿quién cambió esto y cuándo?" sin depender de los logs del servidor.
 
 ## Despliegue
 
-Ver [DEPLOY.md](./DEPLOY.md) para el procedimiento de despliegue en el servidor de producción.
+Ver el [DEPLOY.md](./DEPLOY.md) para el procedimiento de despliegue en el servidor de producción.
+
+ 
+ 
