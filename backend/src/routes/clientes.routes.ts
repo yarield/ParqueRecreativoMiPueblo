@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma'
-import { authMiddleware } from '../middlewares/auth'
+import { authMiddleware, AuthRequest } from '../middlewares/auth'
 import { validate } from '../middlewares/validate'
 import { clienteCreateSchema, clienteUpdateSchema } from '../schemas/validation'
+import { logger } from '../lib/logger'
 
 const router = Router()
 
@@ -103,12 +104,13 @@ router.get('/:id', authMiddleware, async (req, res, next) => {
 })
 
 // POST /api/clientes — protegido
-router.post('/', authMiddleware, validate(clienteCreateSchema), async (req, res, next) => {
+router.post('/', authMiddleware, validate(clienteCreateSchema), async (req: AuthRequest, res, next) => {
   try {
     const { fecha_inicio, ...resto } = req.body
     const cliente = await prisma.clientes.create({
       data: { ...resto, fecha_inicio: new Date(fecha_inicio) }
     })
+    logger.info({ clienteId: cliente.id, usuarioEmail: req.usuarioEmail }, 'Cliente creado')
     res.status(201).json(cliente)
   } catch (err) {
     next(err)
@@ -116,13 +118,14 @@ router.post('/', authMiddleware, validate(clienteCreateSchema), async (req, res,
 })
 
 // PUT /api/clientes/:id — protegido
-router.put('/:id', authMiddleware, validate(clienteUpdateSchema), async (req, res, next) => {
+router.put('/:id', authMiddleware, validate(clienteUpdateSchema), async (req: AuthRequest, res, next) => {
   try {
     const { fecha_inicio, ...resto } = req.body
     const cliente = await prisma.clientes.update({
       where: { id: Number(req.params.id) },
       data: fecha_inicio ? { ...resto, fecha_inicio: new Date(fecha_inicio) } : resto
     })
+    logger.info({ clienteId: cliente.id, usuarioEmail: req.usuarioEmail }, 'Cliente actualizado')
     res.json(cliente)
   } catch (err) {
     next(err)
@@ -130,11 +133,12 @@ router.put('/:id', authMiddleware, validate(clienteUpdateSchema), async (req, re
 })
 
 // DELETE /api/clientes/:id — protegido
-router.delete('/:id', authMiddleware, async (req, res, next) => {
+router.delete('/:id', authMiddleware, async (req: AuthRequest, res, next) => {
   try {
     await prisma.clientes.delete({
       where: { id: Number(req.params.id) }
     })
+    logger.info({ clienteId: Number(req.params.id), usuarioEmail: req.usuarioEmail }, 'Cliente eliminado')
     res.status(204).send()
   } catch (err) {
     next(err)

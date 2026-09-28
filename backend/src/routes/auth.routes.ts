@@ -3,8 +3,9 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import rateLimit from 'express-rate-limit'
 import prisma from '../lib/prisma'
-import { authMiddleware } from '../middlewares/auth'
+import { authMiddleware, AuthRequest } from '../middlewares/auth'
 import { env } from '../config/env'
+import { logger } from '../lib/logger'
 
 const router = Router()
 
@@ -19,7 +20,7 @@ const loginLimiter = rateLimit({
 
 // POST /api/auth/register — protegido: solo un usuario autenticado (admin) puede
 // crear cuentas nuevas. No hay registro público.
-router.post('/register', authMiddleware, async (req, res) => {
+router.post('/register', authMiddleware, async (req: AuthRequest, res) => {
   const { nombre, email, password } = req.body
 
   if (!nombre || !email || !password) {
@@ -40,6 +41,7 @@ router.post('/register', authMiddleware, async (req, res) => {
     omit: { password_hash: true }
   })
 
+  logger.info({ usuarioCreadoId: usuario.id, usuarioCreadoEmail: usuario.email, creadoPor: req.usuarioEmail }, 'Usuario registrado')
   res.status(201).json(usuario)
 })
 
@@ -54,12 +56,14 @@ router.post('/login', loginLimiter, async (req, res) => {
 
   const usuario = await prisma.usuarios.findUnique({ where: { email } })
   if (!usuario) {
+    logger.warn({ email }, 'Login fallido: email no registrado')
     res.status(401).json({ error: 'Credenciales incorrectas' })
     return
   }
 
   const passwordValida = await bcrypt.compare(password, usuario.password_hash)
   if (!passwordValida) {
+    logger.warn({ email }, 'Login fallido: contraseña incorrecta')
     res.status(401).json({ error: 'Credenciales incorrectas' })
     return
   }
@@ -70,6 +74,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     { expiresIn: '8h' }
   )
 
+  logger.info({ usuarioId: usuario.id, email: usuario.email }, 'Login exitoso')
   res.json({ token, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email } })
 })
 

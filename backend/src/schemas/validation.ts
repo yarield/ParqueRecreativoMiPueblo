@@ -124,3 +124,16 @@ export const facturaExportQuerySchema = z
   )
 
 export type FacturaExportQuery = z.infer<typeof facturaExportQuerySchema>
+
+// ---------- Auditoría ----------
+export const auditoriaQuerySchema = z.object({
+  tabla: z.enum(['clientes', 'paquetes', 'categorias', 'facturas', 'usuarios']).optional(),
+  accion: z.enum(['create', 'update', 'delete']).optional(),
+  registro_id: z.coerce.number().int().positive().optional(),
+  usuario_id: z.coerce.number().int().positive().optional(),
+  desde: fechaISO.optional(),
+  hasta: fechaISO.optional(),
+  pagina: z.coerce.number().int().positive().default(1),
+  por_pagina: z.coerce.number().int().positive().max(200).default(50),
+})
+export type AuditoriaQuery = z.infer<typeof auditoriaQuerySchema>

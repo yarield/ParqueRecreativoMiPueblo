@@ -9,6 +9,8 @@ const envSchema = z.object({
   // Origen permitido para CORS. Si se omite, se aceptan todos (útil en desarrollo
   // o detrás de Nginx same-origin). En producción conviene fijar el dominio.
   CORS_ORIGIN: z.string().optional(),
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 })
 
 const parsed = envSchema.safeParse(process.env)

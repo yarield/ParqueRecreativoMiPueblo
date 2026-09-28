@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from 'express'
+import { logger } from '../lib/logger'
+import { AuthRequest } from './auth'
 
-export function errorHandler(err: any, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(err: any, req: Request, res: Response, _next: NextFunction) {
   // Prisma: valor único duplicado (email, cedula, etc.)
   if (err.code === 'P2002') {
     const fields: string[] =
@@ -46,6 +48,9 @@ export function errorHandler(err: any, _req: Request, res: Response, _next: Next
     return
   }
 
-  console.error(err)
+  logger.error(
+    { err, method: req.method, url: req.originalUrl, usuarioEmail: (req as AuthRequest).usuarioEmail },
+    'Error no controlado'
+  )
   res.status(500).json({ error: 'Error interno del servidor' })
 }

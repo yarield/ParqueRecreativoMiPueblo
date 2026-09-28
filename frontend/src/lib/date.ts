@@ -12,6 +12,15 @@ export function formatearFecha(fechaStr: string): string {
   return new Date(fechaStr.slice(0, 10) + 'T00:00:00').toLocaleDateString('es-VE')
 }
 
+/**
+ * Formatea una fecha y hora completas (timestamp ISO) a formato local es-VE.
+ * A diferencia de `formatearFecha`, sí incluye la hora: se usa para eventos
+ * puntuales (p. ej. auditoría) y no para fechas de negocio guardadas sin hora.
+ */
+export function formatearFechaHora(fechaIso: string): string {
+  return new Date(fechaIso).toLocaleString('es-VE')
+}
+
 export function sumarDias(fechaStr: string, dias: number): string {
   const fecha = new Date(fechaStr + 'T00:00:00')
   fecha.setDate(fecha.getDate() + dias)

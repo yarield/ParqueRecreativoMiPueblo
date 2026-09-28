@@ -8,6 +8,7 @@ const navItems = [
   { to: '/paquetes', label: LAYOUT_LABELS.nav.paquetes },
   { to: '/facturas', label: LAYOUT_LABELS.nav.facturas },
   { to: '/estadisticas', label: LAYOUT_LABELS.nav.estadisticas },
+  { to: '/auditoria', label: LAYOUT_LABELS.nav.auditoria },
 ]
 
 export default function Sidebar() {
