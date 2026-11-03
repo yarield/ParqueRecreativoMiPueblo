@@ -102,6 +102,11 @@ server {
     }
     location / {
         try_files $uri /index.html;   # routing de React
+        # Ningún otro sitio puede cargar la app dentro de un iframe (clickjacking).
+        # Van solo aquí y no en /api/, que ya las recibe de helmet en el backend.
+        # "always" hace que también se manden en respuestas de error.
+        add_header X-Frame-Options "DENY" always;
+        add_header Content-Security-Policy "frame-ancestors 'none'" always;
     }
 }
 EOF
