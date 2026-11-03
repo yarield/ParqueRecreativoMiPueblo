@@ -29,6 +29,7 @@ router.get('/proximos-a-vencer', authMiddleware, async (_req, res, next) => {
 
     const facturas = await prisma.facturas.findMany({
       where: {
+        anulada: false,
         fecha_proximo_pago: { gte: hoy, lte: en7dias }
       },
       include: { clientes: true, paquetes: true },
@@ -53,7 +54,7 @@ router.get('/en-mora', authMiddleware, async (_req, res, next) => {
           // Las facturas de pago único (sin próximo pago) quedan fuera: no
           // generan mora y, al ordenar DESC, Postgres pondría sus NULL primero
           // y tomaríamos una factura sin fecha como la más reciente.
-          where: { fecha_proximo_pago: { not: null } },
+          where: { anulada: false, fecha_proximo_pago: { not: null } },
           orderBy: { fecha_proximo_pago: 'desc' },
           take: 1,
           include: { paquetes: { select: { nombre: true } } },

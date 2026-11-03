@@ -10,8 +10,8 @@ router.get('/resumen', authMiddleware, async (_req, res, next) => {
     const [totalClientes, clientesActivos, totalFacturas, ganancias] = await Promise.all([
       prisma.clientes.count(),
       prisma.clientes.count({ where: { estado: 'activo' } }),
-      prisma.facturas.count(),
-      prisma.facturas.aggregate({ _sum: { monto: true, monto_neto: true } }),
+      prisma.facturas.count({ where: { anulada: false } }),
+      prisma.facturas.aggregate({ where: { anulada: false }, _sum: { monto: true, monto_neto: true } }),
     ])
 
     const clientesInactivos = totalClientes - clientesActivos
@@ -58,6 +58,7 @@ router.get('/clientes-por-mes', authMiddleware, async (_req, res, next) => {
 router.get('/paquetes-vendidos', authMiddleware, async (_req, res, next) => {
   try {
     const facturas = await prisma.facturas.findMany({
+      where: { anulada: false },
       select: { paquete_id: true, paquetes: { select: { nombre: true } } },
     })
 
@@ -83,7 +84,7 @@ router.get('/ganancias', authMiddleware, async (req, res, next) => {
   try {
     const { desde, hasta } = req.query
 
-    const where: { fecha_facturacion?: { gte?: Date; lte?: Date } } = {}
+    const where: { anulada: boolean; fecha_facturacion?: { gte?: Date; lte?: Date } } = { anulada: false }
     if (desde) where.fecha_facturacion = { gte: new Date(String(desde)) }
     if (hasta) where.fecha_facturacion = { ...where.fecha_facturacion, lte: new Date(String(hasta)) }
 

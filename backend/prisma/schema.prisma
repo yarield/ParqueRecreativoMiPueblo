@@ -48,6 +48,8 @@ model facturas {
   comision_valor     Decimal   @default(0) @db.Decimal(10, 2)
   comision_monto     Decimal   @default(0) @db.Decimal(10, 2)
   monto_neto         Decimal   @default(0) @db.Decimal(10, 2)
+  anulada            Boolean   @default(false)
+  anulada_en         DateTime?
   clientes           clientes  @relation(fields: [cliente_id], references: [id], onUpdate: NoAction)
   paquetes           paquetes  @relation(fields: [paquete_id], references: [id], onUpdate: NoAction)
   usuarios           usuarios? @relation(fields: [usuario_id], references: [id], onUpdate: NoAction)

@@ -105,11 +105,38 @@ function resolverProximoPago(pagoUnico: boolean, fecha?: string | null) {
   return { ok: true as const, valor: new Date(fecha) }
 }
 
+// Del usuario que registró la factura solo salen los campos que muestra la
+// vista. Con `usuarios: true` la respuesta incluía también el password_hash.
+const INCLUDE_FACTURA = {
+  clientes: true,
+  paquetes: { include: { categorias: true } },
+  usuarios: { select: { id: true, nombre: true, email: true } },
+}
+
+const ERROR_ID_INVALIDO = 'El id de la factura no es válido'
+const ERROR_NO_ENCONTRADA = 'Factura no encontrada'
+const ERROR_NO_ES_DUENO = 'Solo quien registró la factura puede modificarla o anularla'
+
+// La app no tiene roles, así que el menor privilegio que se puede aplicar es
+// el de dueño: cada factura solo la toca quien la registró. Devuelve el código
+// HTTP y el mensaje a responder, o null si el usuario sí puede operar.
+async function validarDueno(id: number, usuarioId: number | undefined) {
+  if (!Number.isInteger(id) || id <= 0) return { status: 400, error: ERROR_ID_INVALIDO }
+  const factura = await prisma.facturas.findUnique({
+    where: { id },
+    select: { usuario_id: true, anulada: true },
+  })
+  if (!factura || factura.anulada) return { status: 404, error: ERROR_NO_ENCONTRADA }
+  if (factura.usuario_id !== usuarioId) return { status: 403, error: ERROR_NO_ES_DUENO }
+  return null
+}
+
 // GET /api/facturas — protegido
 router.get('/', authMiddleware, async (_req, res, next) => {
   try {
     const facturas = await prisma.facturas.findMany({
-      include: { clientes: true, paquetes: { include: { categorias: true } }, usuarios: true },
+      where: { anulada: false },
+      include: INCLUDE_FACTURA,
       orderBy: { fecha_facturacion: 'desc' }
     })
     res.json(facturas)
@@ -132,11 +159,13 @@ router.get(
       // El reporte sale de la base y no de lo que tenga cargado el navegador:
       // así incluye todas las facturas del período, no solo las de la pantalla.
       const facturas = await prisma.facturas.findMany({
-        where:
-          periodo.desde && periodo.hasta
+        where: {
+          anulada: false,
+          ...(periodo.desde && periodo.hasta
             ? { fecha_facturacion: { gte: periodo.desde, lte: periodo.hasta } }
-            : {},
-        include: { clientes: true, paquetes: { include: { categorias: true } }, usuarios: true },
+            : {}),
+        },
+        include: INCLUDE_FACTURA,
         orderBy: { fecha_facturacion: 'asc' },
       })
 
@@ -156,12 +185,17 @@ router.get(
 // GET /api/facturas/:id — protegido
 router.get('/:id', authMiddleware, async (req, res, next) => {
   try {
+    const id = Number(req.params.id)
+    if (!Number.isInteger(id) || id <= 0) {
+      res.status(400).json({ error: ERROR_ID_INVALIDO })
+      return
+    }
     const factura = await prisma.facturas.findUnique({
-      where: { id: Number(req.params.id) },
-      include: { clientes: true, paquetes: { include: { categorias: true } }, usuarios: true }
+      where: { id },
+      include: INCLUDE_FACTURA
     })
-    if (!factura) {
-      res.status(404).json({ error: 'Factura no encontrada' })
+    if (!factura || factura.anulada) {
+      res.status(404).json({ error: ERROR_NO_ENCONTRADA })
       return
     }
     res.json(factura)
@@ -216,9 +250,15 @@ router.post('/', authMiddleware, validate(facturaSchema), async (req: AuthReques
   }
 })
 
-// PUT /api/facturas/:id — protegido
+// PUT /api/facturas/:id — protegido, solo el dueño de la factura
 router.put('/:id', authMiddleware, validate(facturaSchema), async (req: AuthRequest, res, next) => {
   try {
+    const id = Number(req.params.id)
+    const rechazo = await validarDueno(id, req.usuarioId)
+    if (rechazo) {
+      res.status(rechazo.status).json({ error: rechazo.error })
+      return
+    }
     const { cliente_id, paquete_id, fecha_facturacion, fecha_proximo_pago, origen } = req.body
     const paquete = await prisma.paquetes.findUnique({ where: { id: paquete_id } })
     if (!paquete) {
@@ -236,7 +276,7 @@ router.put('/:id', authMiddleware, validate(facturaSchema), async (req: AuthRequ
       return
     }
     const factura = await prisma.facturas.update({
-      where: { id: Number(req.params.id) },
+      where: { id },
       data: {
         cliente_id,
         paquete_id,
@@ -253,13 +293,22 @@ router.put('/:id', authMiddleware, validate(facturaSchema), async (req: AuthRequ
   }
 })
 
-// DELETE /api/facturas/:id — protegido
+// DELETE /api/facturas/:id — protegido, solo el dueño de la factura.
+// No borra la fila: la marca como anulada. Una factura emitida tiene que
+// seguir existiendo en la base para poder revisarla después.
 router.delete('/:id', authMiddleware, async (req: AuthRequest, res, next) => {
   try {
-    await prisma.facturas.delete({
-      where: { id: Number(req.params.id) }
+    const id = Number(req.params.id)
+    const rechazo = await validarDueno(id, req.usuarioId)
+    if (rechazo) {
+      res.status(rechazo.status).json({ error: rechazo.error })
+      return
+    }
+    await prisma.facturas.update({
+      where: { id },
+      data: { anulada: true, anulada_en: new Date() }
     })
-    logger.info({ facturaId: Number(req.params.id), usuarioEmail: req.usuarioEmail }, 'Factura eliminada')
+    logger.info({ facturaId: id, usuarioEmail: req.usuarioEmail }, 'Factura anulada')
     res.status(204).send()
   } catch (err) {
     next(err)

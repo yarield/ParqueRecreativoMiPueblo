@@ -8,7 +8,7 @@ async function reportarClientesEnMora() {
   limite.setDate(limite.getDate() - DIAS_GRACIA)
 
   const facturasVencidas = await prisma.facturas.findMany({
-    where: { fecha_proximo_pago: { lt: limite } },
+    where: { anulada: false, fecha_proximo_pago: { lt: limite } },
     select: { cliente_id: true },
   })
 
