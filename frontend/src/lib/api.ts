@@ -1,24 +1,21 @@
 import { API_BASE_URL } from '@/config/api.config'
 
-function getToken() {
-  return localStorage.getItem('token')
-}
-
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken()
-
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
+    // El JWT ya no va en un header Authorization que arma este archivo: vive
+    // en una cookie HttpOnly (ver PoC "JWT en localStorage"), y es el propio
+    // navegador quien la adjunta. `credentials: 'include'` es necesario para
+    // que la cookie viaje incluso si en algún entorno el front y el back no
+    // comparten origen exacto (en dev/producción normalmente sí, vía proxy).
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   })
 
   if (res.status === 401) {
-    localStorage.removeItem('token')
-    localStorage.removeItem('usuario')
     window.location.href = '/login'
     throw new Error('Sesión expirada')
   }
@@ -34,18 +31,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 /**
  * Descarga un archivo del API. No usa `request` porque la respuesta es binaria
- * y no JSON, pero comparte el token y el manejo de sesión expirada.
+ * y no JSON, pero comparte la cookie de sesión y el manejo de sesión expirada.
  */
 async function descargar(path: string): Promise<{ blob: Blob; nombreArchivo: string | null }> {
-  const token = getToken()
-
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-  })
+  const res = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include' })
 
   if (res.status === 401) {
-    localStorage.removeItem('token')
-    localStorage.removeItem('usuario')
     window.location.href = '/login'
     throw new Error('Sesión expirada')
   }

@@ -87,8 +87,48 @@ router.post('/login', loginLimiter, async (req, res) => {
     { expiresIn: '8h' }
   )
 
+  // El token va en una cookie HttpOnly, no en el cuerpo de la respuesta (ver
+  // PoC "JWT en localStorage"): así ningún script del navegador puede
+  // leerlo, ni para guardarlo (como hacía antes AuthContext.tsx) ni para
+  // robarlo vía XSS.
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 8 * 60 * 60 * 1000, // 8h, igual que expiresIn del JWT
+  })
+
   logger.info({ usuarioId: usuario.id, email: usuario.email, rol: usuario.rol }, 'Login exitoso')
-  res.json({ token, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } })
+  res.json({ usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } })
+})
+
+// GET /api/auth/me — con la cookie ya no hay forma de que el frontend sepa
+// quién es el usuario actual leyéndola directamente (es HttpOnly, por
+// diseño). Este endpoint es cómo el frontend reconstruye la sesión al
+// cargar la página: si la cookie es válida, devuelve los datos; si no, 401.
+router.get('/me', authMiddleware, async (req: AuthRequest, res) => {
+  const usuario = await prisma.usuarios.findUnique({
+    where: { id: req.usuarioId! }, // authMiddleware ya garantizó que exista
+    select: { id: true, nombre: true, email: true, rol: true },
+  })
+  if (!usuario) {
+    res.status(401).json({ error: 'Token inválido o expirado' })
+    return
+  }
+  res.json({ usuario })
+})
+
+// POST /api/auth/logout — antes "cerrar sesión" solo borraba localStorage
+// del lado del navegador; el JWT seguía siendo válido en el servidor hasta
+// su expiración natural (8h). Con la cookie, el backend sí puede invalidar
+// la sesión de verdad.
+router.post('/logout', (_req, res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  })
+  res.status(204).send()
 })
 
 export default router

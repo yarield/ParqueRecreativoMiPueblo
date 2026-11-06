@@ -10,14 +10,16 @@ export interface AuthRequest extends Request {
 }
 
 export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization
+  // El JWT viaja en una cookie HttpOnly, no en el header Authorization (ver
+  // PoC "JWT en localStorage", módulo Autenticación): así, un script que
+  // logre ejecutarse en el navegador (XSS) nunca puede leer el token, aunque
+  // sí lo seguiría adjuntando el navegador en cada petición, como siempre.
+  const token = req.cookies?.token
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!token) {
     res.status(401).json({ error: 'Token requerido' })
     return
   }
-
-  const token = authHeader.split(' ')[1]
 
   try {
   const payload = jwt.verify(token, env.JWT_SECRET) as { id: number; email: string; rol: string }

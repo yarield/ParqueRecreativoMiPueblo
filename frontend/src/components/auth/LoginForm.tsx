@@ -25,7 +25,7 @@ export default function LoginForm() {
     setError('')
     try {
       const res = await api.post<LoginResponse>('/auth/login', data)
-      login(res.token, res.usuario)
+      login(res.usuario)
       navigate('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : AUTH_MESSAGES.loginError)
