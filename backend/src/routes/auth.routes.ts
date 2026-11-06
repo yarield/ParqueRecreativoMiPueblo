@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import rateLimit from 'express-rate-limit'
 import prisma from '../lib/prisma'
-import { authMiddleware, AuthRequest } from '../middlewares/auth'
+import { authMiddleware, requireRole, AuthRequest } from '../middlewares/auth'
 import { env } from '../config/env'
 import { logger } from '../lib/logger'
 
@@ -18,13 +18,25 @@ const loginLimiter = rateLimit({
   message: { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' },
 })
 
-// POST /api/auth/register — protegido: solo un usuario autenticado (admin) puede
-// crear cuentas nuevas. No hay registro público.
-router.post('/register', authMiddleware, async (req: AuthRequest, res) => {
-  const { nombre, email, password } = req.body
+// POST /api/auth/register — protegido: solo un ADMINISTRADOR puede crear
+// cuentas nuevas. No hay registro público. El comentario original decía
+// "admin" pero el código solo exigía estar autenticado, sin importar el rol
+// (ver PoC de escalación de privilegios, módulo Autenticación): cualquier
+// cuenta —incluida una "cajero"— podía registrar otras cuentas y asignarles
+// el rol que quisiera en el body, incluido 'admin'. requireRole('admin')
+// cierra ese hueco; una vez cerrado, que esta misma ruta deje a un admin ya
+// autenticado elegir el rol de la cuenta que crea (líneas de abajo) es una
+// capacidad administrativa normal, no una vulnerabilidad.
+router.post('/register', authMiddleware, requireRole('admin'), async (req: AuthRequest, res) => {
+  const { nombre, email, password, rol } = req.body
 
   if (!nombre || !email || !password) {
     res.status(400).json({ error: 'nombre, email y password son requeridos' })
+    return
+  }
+
+  if (rol !== undefined && rol !== 'admin' && rol !== 'cajero') {
+    res.status(400).json({ error: "rol debe ser 'admin' o 'cajero'" })
     return
   }
 
@@ -37,7 +49,8 @@ router.post('/register', authMiddleware, async (req: AuthRequest, res) => {
   const password_hash = await bcrypt.hash(password, 10)
 
   const usuario = await prisma.usuarios.create({
-    data: { nombre, email, password_hash },
+    // Sin rol explícito, la cuenta nace "cajero" (menor privilegio por defecto).
+    data: { nombre, email, password_hash, rol: rol ?? 'cajero' },
     omit: { password_hash: true }
   })
 
@@ -69,13 +82,53 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 
   const token = jwt.sign(
-    { id: usuario.id, email: usuario.email },
+    { id: usuario.id, email: usuario.email, rol: usuario.rol },
     env.JWT_SECRET,
     { expiresIn: '8h' }
   )
 
-  logger.info({ usuarioId: usuario.id, email: usuario.email }, 'Login exitoso')
-  res.json({ token, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email } })
+  // El token va en una cookie HttpOnly, no en el cuerpo de la respuesta (ver
+  // PoC "JWT en localStorage"): así ningún script del navegador puede
+  // leerlo, ni para guardarlo (como hacía antes AuthContext.tsx) ni para
+  // robarlo vía XSS.
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 8 * 60 * 60 * 1000, // 8h, igual que expiresIn del JWT
+  })
+
+  logger.info({ usuarioId: usuario.id, email: usuario.email, rol: usuario.rol }, 'Login exitoso')
+  res.json({ usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } })
+})
+
+// GET /api/auth/me — con la cookie ya no hay forma de que el frontend sepa
+// quién es el usuario actual leyéndola directamente (es HttpOnly, por
+// diseño). Este endpoint es cómo el frontend reconstruye la sesión al
+// cargar la página: si la cookie es válida, devuelve los datos; si no, 401.
+router.get('/me', authMiddleware, async (req: AuthRequest, res) => {
+  const usuario = await prisma.usuarios.findUnique({
+    where: { id: req.usuarioId! }, // authMiddleware ya garantizó que exista
+    select: { id: true, nombre: true, email: true, rol: true },
+  })
+  if (!usuario) {
+    res.status(401).json({ error: 'Token inválido o expirado' })
+    return
+  }
+  res.json({ usuario })
+})
+
+// POST /api/auth/logout — antes "cerrar sesión" solo borraba localStorage
+// del lado del navegador; el JWT seguía siendo válido en el servidor hasta
+// su expiración natural (8h). Con la cookie, el backend sí puede invalidar
+// la sesión de verdad.
+router.post('/logout', (_req, res) => {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  })
+  res.status(204).send()
 })
 
 export default router

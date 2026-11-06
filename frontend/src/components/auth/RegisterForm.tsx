@@ -29,7 +29,7 @@ export default function RegisterForm() {
         email: data.email,
         password: data.password,
       })
-      login(res.token, res.usuario)
+      login(res.usuario)
       navigate('/dashboard')
     } catch (err) {
       setError(err instanceof Error ? err.message : AUTH_MESSAGES.registerError)

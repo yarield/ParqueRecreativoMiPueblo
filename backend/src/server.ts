@@ -3,6 +3,7 @@ import { env } from './config/env'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
+import cookieParser from 'cookie-parser'
 import categoriasRouter from './routes/categorias.routes'
 import clientesRouter from './routes/clientes.routes'
 import paquetesRouter from './routes/paquetes.routes'
@@ -21,8 +22,14 @@ const PORT = env.PORT
 
 app.use(helmet())
 // Si CORS_ORIGIN está definido, se restringe a ese origen; si no, se aceptan
-// todos (desarrollo o detrás de Nginx same-origin).
-app.use(cors({ origin: env.CORS_ORIGIN ?? true }))
+// todos (desarrollo o detrás de Nginx same-origin). `credentials: true` es
+// necesario desde que el JWT viaja en una cookie (ver auth.routes.ts): sin
+// esto, el navegador no adjunta la cookie en peticiones que pasen por CORS.
+// En este proyecto el frontend llama a /api como ruta relativa (mismo
+// origen, vía proxy de Vite en dev y Nginx en producción), así que en la
+// práctica casi nunca es una petición cross-origin real.
+app.use(cors({ origin: env.CORS_ORIGIN ?? true, credentials: true }))
+app.use(cookieParser())
 app.use(express.json())
 app.use(requestLogger)
 
