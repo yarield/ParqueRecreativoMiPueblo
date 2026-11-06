@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import rateLimit from 'express-rate-limit'
 import prisma from '../lib/prisma'
-import { authMiddleware, AuthRequest } from '../middlewares/auth'
+import { authMiddleware, requireRole, AuthRequest } from '../middlewares/auth'
 import { env } from '../config/env'
 import { logger } from '../lib/logger'
 
@@ -18,9 +18,16 @@ const loginLimiter = rateLimit({
   message: { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' },
 })
 
-// POST /api/auth/register — protegido: solo un usuario autenticado (admin) puede
-// crear cuentas nuevas. No hay registro público.
-router.post('/register', authMiddleware, async (req: AuthRequest, res) => {
+// POST /api/auth/register — protegido: solo un ADMINISTRADOR puede crear
+// cuentas nuevas. No hay registro público. El comentario original decía
+// "admin" pero el código solo exigía estar autenticado, sin importar el rol
+// (ver PoC de escalación de privilegios, módulo Autenticación): cualquier
+// cuenta —incluida una "cajero"— podía registrar otras cuentas y asignarles
+// el rol que quisiera en el body, incluido 'admin'. requireRole('admin')
+// cierra ese hueco; una vez cerrado, que esta misma ruta deje a un admin ya
+// autenticado elegir el rol de la cuenta que crea (líneas de abajo) es una
+// capacidad administrativa normal, no una vulnerabilidad.
+router.post('/register', authMiddleware, requireRole('admin'), async (req: AuthRequest, res) => {
   const { nombre, email, password, rol } = req.body
 
   if (!nombre || !email || !password) {

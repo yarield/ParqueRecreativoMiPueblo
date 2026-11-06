@@ -1,11 +1,15 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma'
-import { authMiddleware } from '../middlewares/auth'
+import { authMiddleware, requireRole } from '../middlewares/auth'
 
 const router = Router()
 
-// GET /api/usuarios — protegido
-router.get('/', authMiddleware, async (_req, res, next) => {
+// GET /api/usuarios — restringido a administradores. Antes, cualquier
+// cuenta autenticada veía el directorio completo (nombre + email de todos,
+// incluido el admin real); ver PoC de escalación de privilegios, módulo
+// Autenticación. Reutiliza requireRole del PoC1 de Rachel/Clientes en vez de
+// un middleware propio, para no duplicar el mismo control dos veces.
+router.get('/', authMiddleware, requireRole('admin'), async (_req, res, next) => {
   try {
     const usuarios = await prisma.usuarios.findMany({
       omit: { password_hash: true }
