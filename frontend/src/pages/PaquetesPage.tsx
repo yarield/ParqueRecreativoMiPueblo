@@ -15,12 +15,16 @@ import { usePaginacion } from '@/hooks/usePaginacion'
 import { useCategorias, useCreateCategoria, useUpdateCategoria, useDeleteCategoria } from '@/hooks/useCategorias'
 import { PAQUETES_LABELS } from '@/constants/paquetes.constants'
 import { CATEGORIAS_LABELS } from '@/constants/categorias.constants'
+import { useAuth } from '@/context/AuthContext'
 import type { Paquete } from '@/types/paquetes'
 import type { Categoria } from '@/types/categorias'
 import type { PaqueteFormData } from '@/schemas/paquetes.schema'
 import type { CategoriaFormData } from '@/schemas/categorias.schema'
 
 export default function PaquetesPage() {
+  const { usuario } = useAuth()
+  const esAdmin = (usuario as { rol?: string } | null)?.rol === 'admin'
+
   const { data: paquetes = [], isLoading: loadingPaquetes } = usePaquetes()
   const { data: categorias = [], isLoading: loadingCategorias } = useCategorias()
 
@@ -130,9 +134,11 @@ export default function PaquetesPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={() => { setPaqueteEditar(null); setPaqueteFormOpen(true) }}>
-              {PAQUETES_LABELS.agregar}
-            </Button>
+            {esAdmin && (
+              <Button onClick={() => { setPaqueteEditar(null); setPaqueteFormOpen(true) }}>
+                {PAQUETES_LABELS.agregar}
+              </Button>
+            )}
           </div>
 
           {loadingPaquetes ? (
@@ -151,11 +157,13 @@ export default function PaquetesPage() {
         </TabsContent>
 
         <TabsContent value="categorias" className="space-y-4 mt-4">
-          <div className="flex justify-end">
-            <Button onClick={() => { setCategoriaEditar(null); setCategoriaFormOpen(true) }}>
-              {CATEGORIAS_LABELS.agregar}
-            </Button>
-          </div>
+          {esAdmin && (
+            <div className="flex justify-end">
+              <Button onClick={() => { setCategoriaEditar(null); setCategoriaFormOpen(true) }}>
+                {CATEGORIAS_LABELS.agregar}
+              </Button>
+            </div>
+          )}
 
           {loadingCategorias ? (
             <p className="text-center text-gray-400 py-8">Cargando...</p>

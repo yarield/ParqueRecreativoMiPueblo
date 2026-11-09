@@ -1,9 +1,13 @@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PAQUETES_LABELS, PAQUETES_MESSAGES } from '@/constants/paquetes.constants'
+import { useAuth } from '@/context/AuthContext'
 import type { PaquetesTableProps } from './paquetes.types'
 
 export default function PaquetesTable({ paquetes, onEdit, onDelete, onToggleEstado }: PaquetesTableProps) {
+  const { usuario } = useAuth()
+  const esAdmin = (usuario as { rol?: string } | null)?.rol === 'admin'
+
   if (paquetes.length === 0) {
     return <p className="text-center text-gray-500 py-8">{PAQUETES_LABELS.sinPaquetes}</p>
   }
@@ -18,7 +22,7 @@ export default function PaquetesTable({ paquetes, onEdit, onDelete, onToggleEsta
             <th className="px-4 py-3 text-right">{PAQUETES_LABELS.precio}</th>
             <th className="px-4 py-3 text-right">{PAQUETES_LABELS.duracion}</th>
             <th className="px-4 py-3 text-left">{PAQUETES_LABELS.estado}</th>
-            <th className="px-4 py-3 text-right">{PAQUETES_LABELS.acciones}</th>
+            {esAdmin && <th className="px-4 py-3 text-right">{PAQUETES_LABELS.acciones}</th>}
           </tr>
         </thead>
         <tbody className="divide-y">
@@ -53,19 +57,21 @@ export default function PaquetesTable({ paquetes, onEdit, onDelete, onToggleEsta
                   {paquete.estado === 'activo' ? PAQUETES_LABELS.activo : PAQUETES_LABELS.inactivo}
                 </Badge>
               </td>
-              <td className="px-4 py-3">
-                <div className="flex justify-end gap-2">
-                  <Button size="sm" variant="outline" onClick={() => onToggleEstado(paquete)}>
-                    {paquete.estado === 'activo' ? PAQUETES_LABELS.inactivo : PAQUETES_LABELS.activo}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => onEdit(paquete)}>
-                    {PAQUETES_MESSAGES.editarBtn}
-                  </Button>
-                  <Button size="sm" variant="destructive" onClick={() => onDelete(paquete)}>
-                    {PAQUETES_MESSAGES.eliminarBtn}
-                  </Button>
-                </div>
-              </td>
+              {esAdmin && (
+                <td className="px-4 py-3">
+                  <div className="flex justify-end gap-2">
+                    <Button size="sm" variant="outline" onClick={() => onToggleEstado(paquete)}>
+                      {paquete.estado === 'activo' ? PAQUETES_LABELS.inactivo : PAQUETES_LABELS.activo}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => onEdit(paquete)}>
+                      {PAQUETES_MESSAGES.editarBtn}
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => onDelete(paquete)}>
+                      {PAQUETES_MESSAGES.eliminarBtn}
+                    </Button>
+                  </div>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
