@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import rateLimit from 'express-rate-limit'
 import prisma from '../lib/prisma'
-import { authMiddleware, AuthRequest } from '../middlewares/auth'
+import { authMiddleware, requireRole, AuthRequest } from '../middlewares/auth'
 import { env } from '../config/env'
 import { logger } from '../lib/logger'
 
@@ -18,13 +18,25 @@ const loginLimiter = rateLimit({
   message: { error: 'Demasiados intentos. Intenta de nuevo en unos minutos.' },
 })
 
-// POST /api/auth/register — protegido: solo un usuario autenticado (admin) puede
-// crear cuentas nuevas. No hay registro público.
-router.post('/register', authMiddleware, async (req: AuthRequest, res) => {
-  const { nombre, email, password } = req.body
+// POST /api/auth/register — protegido: solo un ADMINISTRADOR puede crear
+// cuentas nuevas. No hay registro público. El comentario original decía
+// "admin" pero el código solo exigía estar autenticado, sin importar el rol
+// (ver PoC de escalación de privilegios, módulo Autenticación): cualquier
+// cuenta —incluida una "cajero"— podía registrar otras cuentas y asignarles
+// el rol que quisiera en el body, incluido 'admin'. requireRole('admin')
+// cierra ese hueco; una vez cerrado, que esta misma ruta deje a un admin ya
+// autenticado elegir el rol de la cuenta que crea (líneas de abajo) es una
+// capacidad administrativa normal, no una vulnerabilidad.
+router.post('/register', authMiddleware, requireRole('admin'), async (req: AuthRequest, res) => {
+  const { nombre, email, password, rol } = req.body
 
   if (!nombre || !email || !password) {
     res.status(400).json({ error: 'nombre, email y password son requeridos' })
+    return
+  }
+
+  if (rol !== undefined && rol !== 'admin' && rol !== 'cajero') {
+    res.status(400).json({ error: "rol debe ser 'admin' o 'cajero'" })
     return
   }
 
@@ -37,7 +49,8 @@ router.post('/register', authMiddleware, async (req: AuthRequest, res) => {
   const password_hash = await bcrypt.hash(password, 10)
 
   const usuario = await prisma.usuarios.create({
-    data: { nombre, email, password_hash },
+    // Sin rol explícito, la cuenta nace "cajero" (menor privilegio por defecto).
+    data: { nombre, email, password_hash, rol: rol ?? 'cajero' },
     omit: { password_hash: true }
   })
 
@@ -69,13 +82,13 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 
   const token = jwt.sign(
-    { id: usuario.id, email: usuario.email },
+    { id: usuario.id, email: usuario.email, rol: usuario.rol },
     env.JWT_SECRET,
     { expiresIn: '8h' }
   )
 
-  logger.info({ usuarioId: usuario.id, email: usuario.email }, 'Login exitoso')
-  res.json({ token, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email } })
+  logger.info({ usuarioId: usuario.id, email: usuario.email, rol: usuario.rol }, 'Login exitoso')
+  res.json({ token, usuario: { id: usuario.id, nombre: usuario.nombre, email: usuario.email, rol: usuario.rol } })
 })
 
 export default router

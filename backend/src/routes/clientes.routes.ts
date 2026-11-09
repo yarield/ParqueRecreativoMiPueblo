@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma'
-import { authMiddleware, AuthRequest } from '../middlewares/auth'
+import { authMiddleware, AuthRequest, requireRole } from '../middlewares/auth'
 import { validate } from '../middlewares/validate'
 import { clienteCreateSchema, clienteUpdateSchema } from '../schemas/validation'
 import { logger } from '../lib/logger'
@@ -117,8 +117,25 @@ router.post('/', authMiddleware, validate(clienteCreateSchema), async (req: Auth
   }
 })
 
-// PUT /api/clientes/:id — protegido
-router.put('/:id', authMiddleware, validate(clienteUpdateSchema), async (req: AuthRequest, res, next) => {
+// PUT /api/clientes/:id — protegido. Cambiar el estado (activar/desactivar un
+// cliente) exige admin; el resto de campos (teléfono, observaciones, etc.)
+// los puede editar cualquier empleado autenticado, como siempre (ver PoC1:
+// la evidencia de Fase 2 mostró justo este caso —cambiar estado sin control
+// de rol— como parte de la falta de autorización, junto con DELETE).
+//
+// El chequeo de 'estado' se hace ANTES de validate(): clienteUpdateSchema
+// trae estado con .default('activo'), y Zod rellena ese valor por defecto
+// incluso a través de .partial(), así que tras la validación 'estado' SIEMPRE
+// aparece en el body, aunque el cliente nunca lo haya enviado. Si el chequeo
+// corriera después de validate(), bloquearía a un cajero editando CUALQUIER
+// campo, no solo estado.
+router.put('/:id', authMiddleware, (req: AuthRequest, res, next) => {
+  if ('estado' in req.body && req.usuarioRol !== 'admin') {
+    res.status(403).json({ error: 'No tiene permisos para cambiar el estado de un cliente' })
+    return
+  }
+  next()
+}, validate(clienteUpdateSchema), async (req: AuthRequest, res, next) => {
   try {
     const { fecha_inicio, ...resto } = req.body
     const cliente = await prisma.clientes.update({
@@ -132,8 +149,9 @@ router.put('/:id', authMiddleware, validate(clienteUpdateSchema), async (req: Au
   }
 })
 
-// DELETE /api/clientes/:id — protegido
-router.delete('/:id', authMiddleware, async (req: AuthRequest, res, next) => {
+
+// DELETE /api/clientes/:id — protegido, solo admin (ver PoC1: Falta de Autorización)
+router.delete('/:id', authMiddleware, requireRole('admin'), async (req: AuthRequest, res, next) => {
   try {
     await prisma.clientes.delete({
       where: { id: Number(req.params.id) }

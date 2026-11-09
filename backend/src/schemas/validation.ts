@@ -9,9 +9,22 @@ const fechaISO = z
   .refine((s) => /^\d{4}-\d{2}-\d{2}/.test(s) && !Number.isNaN(Date.parse(s)), 'Fecha inválida')
 
 // ---------- Categorías ----------
+// Control 4 (PR.DS-01 / DE.CM-03): purga saltos de línea/caracteres de control
+// para prevenir Audit Poisoning y bloquea prefijos de fórmulas (=, +, -, @) en Excel.
+const limpiarTextoCatalogo = (s: string) => s.replace(/[\r\n\t]+/g, ' ').trim()
+const sinPrefijoFormula = (s: string) => !/^[=+\-@]/.test(s)
+const msgFormula = 'El texto no puede iniciar con caracteres de fórmula (=, +, -, @)'
+
 export const categoriaCreateSchema = z.object({
-  nombre: z.string().trim().min(1, 'El nombre es requerido').max(100),
-  descripcion: z.string().max(1000).nullish(),
+  nombre: z
+    .string()
+    .transform(limpiarTextoCatalogo)
+    .pipe(z.string().min(1, 'El nombre es requerido').max(100).refine(sinPrefijoFormula, msgFormula)),
+  descripcion: z
+    .string()
+    .transform(limpiarTextoCatalogo)
+    .pipe(z.string().max(1000).refine(sinPrefijoFormula, msgFormula))
+    .nullish(),
 })
 export const categoriaUpdateSchema = categoriaCreateSchema.partial()
 
@@ -30,8 +43,13 @@ export const clienteCreateSchema = z.object({
 export const clienteUpdateSchema = clienteCreateSchema.partial()
 
 // ---------- Paquetes ----------
+const nombrePaqueteSchema = z
+  .string()
+  .transform(limpiarTextoCatalogo)
+  .pipe(z.string().min(1, 'El nombre es requerido').max(150).refine(sinPrefijoFormula, msgFormula))
+
 const paqueteBase = z.object({
-  nombre: z.string().trim().min(1, 'El nombre es requerido').max(150),
+  nombre: nombrePaqueteSchema,
   // En un paquete de precio abierto el precio es opcional: si viene, sirve de
   // referencia para prellenar la factura; si no, se escribe desde cero.
   precio: z.coerce.number().positive('El precio debe ser mayor a 0').max(DEC_MAX).nullish(),
@@ -46,11 +64,24 @@ const paqueteBase = z.object({
   estado: z.enum(['activo', 'inactivo']).default('activo'),
 })
 
+// Esquema de actualización parcial sin .default() para no sobrescribir campos
+// omitidos en PUT /api/paquetes/:id antes de fusionar con el registro en BD.
+const paqueteUpdateBase = z.object({
+  nombre: nombrePaqueteSchema.optional(),
+  precio: z.coerce.number().positive('El precio debe ser mayor a 0').max(DEC_MAX).nullish(),
+  precio_abierto: z.boolean().optional(),
+  cobro_por_noche: z.boolean().optional(),
+  categoria_id: z.coerce.number().int().positive('La categoría es requerida').optional(),
+  duracion_dias: z.coerce.number().int().positive('La duración debe ser mayor a 0').optional(),
+  duracion_unidad: z.enum(['dias', 'meses']).optional(),
+  estado: z.enum(['activo', 'inactivo']).optional(),
+})
+
 type PaqueteModo = { precio_abierto?: boolean; cobro_por_noche?: boolean; precio?: number | null }
 
 // Solo un paquete de precio fijo obliga a tener precio: en los otros dos modos
-// el precio se escribe (o se ajusta) al facturar. En un update parcial que no
-// toque el modo no hay nada que validar aquí.
+// el precio se escribe (o se ajusta) al facturar. En PUT /:id la ruta valida
+// además contra el estado fusionado con la fila existente en la base de datos.
 const precioSegunModo = (d: PaqueteModo) =>
   d.precio_abierto !== false || d.cobro_por_noche !== false || d.precio != null
 const msgPrecio = { path: ['precio'], message: 'El precio es requerido en un paquete de precio fijo' }
@@ -63,8 +94,7 @@ const msgModo = {
 }
 
 export const paqueteCreateSchema = paqueteBase.refine(precioSegunModo, msgPrecio).refine(modosExcluyentes, msgModo)
-export const paqueteUpdateSchema = paqueteBase
-  .partial()
+export const paqueteUpdateSchema = paqueteUpdateBase
   .refine(precioSegunModo, msgPrecio)
   .refine(modosExcluyentes, msgModo)
 
